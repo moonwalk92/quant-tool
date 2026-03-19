@@ -152,6 +152,9 @@ setInterval(async () => {
 
 const PORT = process.env.PORT || 3000;
 
+// 服务启动时自动重置引擎状态（避免回撤限制残留）
+engine.reset();
+
 server.listen(PORT, '0.0.0.0', () => {
   console.log(`
 ╔═══════════════════════════════════════════════════╗
