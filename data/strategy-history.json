@@ -1,0 +1,16 @@
+[
+  {
+    "id": 1773963278031,
+    "name": "基金配置",
+    "config": {
+      "initialCapital": 10000,
+      "riskPerTrade": 0.01,
+      "maxDrawdown": 0.2,
+      "takeProfitPoints": 21,
+      "stopLossPoints": 19,
+      "pendingOrderInterval": 4
+    },
+    "timestamp": 1773963278031,
+    "appliedAt": "2026-03-19T23:34:38.031Z"
+  }
+]

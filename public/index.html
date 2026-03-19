@@ -297,6 +297,372 @@
       background: linear-gradient(90deg, #00ff88, #ff4040);
       transition: width 0.3s;
     }
+    
+    /* 策略配置样式 */
+    .strategy-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 20px;
+      margin-top: 16px;
+    }
+    
+    .strategy-section {
+      background: rgba(255, 255, 255, 0.03);
+      border-radius: 12px;
+      padding: 16px;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+    }
+    
+    .strategy-section h4 {
+      color: #00d9ff;
+      margin-bottom: 16px;
+      font-size: 16px;
+      font-weight: 600;
+    }
+    
+    .config-item {
+      margin-bottom: 12px;
+    }
+    
+    .config-item label {
+      display: block;
+      font-size: 13px;
+      color: rgba(255, 255, 255, 0.6);
+      margin-bottom: 6px;
+    }
+    
+    .config-item input {
+      width: 100%;
+      padding: 10px 12px;
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      border-radius: 8px;
+      color: #fff;
+      font-size: 14px;
+      transition: all 0.3s;
+    }
+    
+    .config-item input:focus {
+      outline: none;
+      border-color: #00d9ff;
+      background: rgba(255, 255, 255, 0.12);
+    }
+    
+    .config-item input[readonly] {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+    
+    .config-select {
+      width: 100%;
+      padding: 10px 12px;
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      border-radius: 8px;
+      color: #fff;
+      font-size: 14px;
+      cursor: pointer;
+      outline: none;
+      transition: all 0.3s;
+    }
+    
+    .config-select:focus {
+      border-color: #00d9ff;
+      background: rgba(255, 255, 255, 0.12);
+    }
+    
+    .config-select option {
+      background: #1a1a2e;
+      color: #fff;
+    }
+    
+    /* 按钮样式 */
+    .btn-history {
+      padding: 8px 16px;
+      background: rgba(0, 217, 255, 0.15);
+      color: #00d9ff;
+      border: 1px solid rgba(0, 217, 255, 0.3);
+      border-radius: 8px;
+      font-size: 13px;
+      cursor: pointer;
+      transition: all 0.3s;
+    }
+    
+    .btn-history:hover {
+      background: rgba(0, 217, 255, 0.25);
+    }
+    
+    /* 弹框样式 */
+    .modal {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.8);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 10000;
+      backdrop-filter: blur(4px);
+    }
+    
+    .modal-content {
+      background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+      border-radius: 16px;
+      padding: 24px;
+      width: 90%;
+      max-width: 500px;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+    }
+    
+    .modal-large {
+      max-width: 800px;
+    }
+    
+    .modal-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 20px;
+      padding-bottom: 16px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    }
+    
+    .modal-header h3 {
+      margin: 0;
+      color: #00d9ff;
+      font-size: 20px;
+    }
+    
+    .modal-close {
+      background: none;
+      border: none;
+      color: rgba(255, 255, 255, 0.5);
+      font-size: 28px;
+      cursor: pointer;
+      padding: 0;
+      width: 32px;
+      height: 32px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: color 0.3s;
+    }
+    
+    .modal-close:hover {
+      color: #fff;
+    }
+    
+    .modal-body {
+      margin-bottom: 20px;
+    }
+    
+    .modal-footer {
+      display: flex;
+      gap: 12px;
+      justify-content: flex-end;
+      padding-top: 16px;
+      border-top: 1px solid rgba(255, 255, 255, 0.1);
+    }
+    
+    .config-summary {
+      background: rgba(255, 255, 255, 0.05);
+      border-radius: 12px;
+      padding: 16px;
+      margin-top: 16px;
+    }
+    
+    .config-summary h4 {
+      margin: 0 0 12px 0;
+      color: rgba(255, 255, 255, 0.8);
+      font-size: 14px;
+    }
+    
+    #configPreview {
+      font-size: 13px;
+      line-height: 1.8;
+      color: rgba(255, 255, 255, 0.6);
+    }
+    
+    #configPreview strong {
+      color: #00ff88;
+    }
+    
+    /* 历史列表样式 */
+    .history-list {
+      max-height: 500px;
+      overflow-y: auto;
+    }
+    
+    .history-item {
+      background: rgba(255, 255, 255, 0.05);
+      border-radius: 12px;
+      padding: 16px;
+      margin-bottom: 12px;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      transition: all 0.3s;
+    }
+    
+    .history-item:hover {
+      border-color: rgba(0, 217, 255, 0.3);
+      background: rgba(255, 255, 255, 0.08);
+    }
+    
+    .history-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 12px;
+    }
+    
+    .history-name {
+      font-size: 16px;
+      font-weight: 600;
+      color: #00d9ff;
+    }
+    
+    .history-time {
+      font-size: 12px;
+      color: rgba(255, 255, 255, 0.4);
+    }
+    
+    .history-config {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+      gap: 8px;
+      font-size: 13px;
+      color: rgba(255, 255, 255, 0.6);
+    }
+    
+    .history-config-item {
+      background: rgba(255, 255, 255, 0.05);
+      padding: 8px;
+      border-radius: 6px;
+    }
+    
+    .history-config-item label {
+      display: block;
+      font-size: 11px;
+      color: rgba(255, 255, 255, 0.4);
+      margin-bottom: 4px;
+    }
+    
+    .history-config-item span {
+      color: #00ff88;
+      font-weight: 600;
+    }
+    
+    .history-actions {
+      display: flex;
+      gap: 8px;
+      margin-top: 12px;
+    }
+    
+    .history-actions button {
+      flex: 1;
+      padding: 8px;
+      font-size: 13px;
+      border-radius: 8px;
+      border: none;
+      cursor: pointer;
+      transition: all 0.3s;
+    }
+    
+    .btn-apply {
+      background: rgba(0, 255, 136, 0.2);
+      color: #00ff88;
+      border: 1px solid rgba(0, 255, 136, 0.3);
+    }
+    
+    .btn-apply:hover {
+      background: rgba(0, 255, 136, 0.3);
+    }
+    
+    .btn-delete {
+      background: rgba(255, 100, 100, 0.2);
+      color: #ff6464;
+      border: 1px solid rgba(255, 100, 100, 0.3);
+    }
+    
+    .btn-delete:hover {
+      background: rgba(255, 100, 100, 0.3);
+    }
+    
+    /* 品种选择器 */
+    .symbol-select {
+      float: right;
+      background: rgba(0, 217, 255, 0.15);
+      color: #00d9ff;
+      border: 1px solid rgba(0, 217, 255, 0.3);
+      border-radius: 6px;
+      padding: 4px 12px;
+      font-size: 12px;
+      cursor: pointer;
+      outline: none;
+    }
+    
+    .symbol-select option {
+      background: #1a1a2e;
+      color: #fff;
+    }
+    
+    /* 计数徽章 */
+    .count-badge {
+      float: right;
+      background: rgba(0, 217, 255, 0.2);
+      color: #00d9ff;
+      border-radius: 12px;
+      padding: 2px 10px;
+      font-size: 12px;
+      font-weight: 600;
+    }
+    
+    /* 分页样式 */
+    .pagination {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 12px;
+      margin-top: 16px;
+      padding-top: 16px;
+      border-top: 1px solid rgba(255, 255, 255, 0.1);
+    }
+    
+    .page-btn {
+      background: rgba(0, 217, 255, 0.15);
+      color: #00d9ff;
+      border: 1px solid rgba(0, 217, 255, 0.3);
+      border-radius: 8px;
+      padding: 6px 16px;
+      font-size: 13px;
+      cursor: pointer;
+      transition: all 0.3s;
+    }
+    
+    .page-btn:hover:not(:disabled) {
+      background: rgba(0, 217, 255, 0.25);
+    }
+    
+    .page-btn:disabled {
+      opacity: 0.3;
+      cursor: not-allowed;
+    }
+    
+    .page-info {
+      color: rgba(255, 255, 255, 0.6);
+      font-size: 13px;
+      min-width: 80px;
+      text-align: center;
+    }
+    
+    /* 持仓/挂单时间 */
+    .position-time {
+      font-size: 11px;
+      color: rgba(255, 255, 255, 0.4);
+      margin-top: 4px;
+    }
   </style>
 </head>
 <body>
@@ -314,9 +680,23 @@
     <div class="grid">
       <!-- 实时价格 -->
       <div class="card">
-        <div class="card-title">实时价格</div>
+        <div class="card-title">
+          <span>实时价格</span>
+          <select id="symbolSelect" onchange="changeSymbol()" class="symbol-select">
+            <option value="XAUUSD">黄金/美元 (XAUUSD)</option>
+            <option value="XAGUSD">白银/美元 (XAGUSD)</option>
+            <option value="EURUSD">欧元/美元 (EURUSD)</option>
+            <option value="GBPUSD">英镑/美元 (GBPUSD)</option>
+            <option value="USDJPY">美元/日元 (USDJPY)</option>
+            <option value="AUDUSD">澳元/美元 (AUDUSD)</option>
+            <option value="USDCAD">美元/加元 (USDCAD)</option>
+            <option value="NZDUSD">纽元/美元 (NZDUSD)</option>
+            <option value="BTCUSD">比特币/美元 (BTCUSD)</option>
+            <option value="ETHUSD">以太坊/美元 (ETHUSD)</option>
+          </select>
+        </div>
         <div class="card-value" id="currentPrice">--</div>
-        <div class="card-subtitle">XAUUSD</div>
+        <div class="card-subtitle" id="currentSymbol">XAUUSD</div>
       </div>
       
       <!-- 当前权益 -->
@@ -356,17 +736,33 @@
     <div class="grid" style="margin-top: 20px;">
       <!-- 当前持仓 -->
       <div class="card">
-        <div class="card-title">当前持仓</div>
+        <div class="card-title">
+          <span>当前持仓</span>
+          <span id="positionCount" class="count-badge">0</span>
+        </div>
         <div id="positionsList" class="positions-list">
           <div class="empty-state">暂无持仓</div>
+        </div>
+        <div id="positionPagination" class="pagination" style="display: none;">
+          <button class="page-btn" onclick="prevPage()">◀ 上一页</button>
+          <span class="page-info" id="positionPageInfo">1 / 1</span>
+          <button class="page-btn" onclick="nextPage()">下一页 ▶</button>
         </div>
       </div>
       
       <!-- 挂单 -->
       <div class="card">
-        <div class="card-title">挂单</div>
+        <div class="card-title">
+          <span>挂单</span>
+          <span id="pendingCount" class="count-badge">0</span>
+        </div>
         <div id="pendingOrdersList" class="orders-list">
           <div class="empty-state">暂无挂单</div>
+        </div>
+        <div id="pendingPagination" class="pagination" style="display: none;">
+          <button class="page-btn" onclick="prevPendingPage()">◀ 上一页</button>
+          <span class="page-info" id="pendingPageInfo">1 / 1</span>
+          <button class="page-btn" onclick="nextPendingPage()">下一页 ▶</button>
         </div>
       </div>
     </div>
@@ -392,8 +788,126 @@
         </tbody>
       </table>
     </div>
+    
+    <!-- 策略配置 -->
+    <div class="card" style="margin-top: 20px;">
+      <div class="card-title" style="display: flex; justify-content: space-between; align-items: center;">
+        <span>⚙️ 策略配置</span>
+        <button class="btn-history" onclick="showHistoryModal()">📜 历史记录</button>
+      </div>
+      <div class="strategy-grid">
+        <div class="strategy-section">
+          <h4>💰 资金管理</h4>
+          <div class="config-item">
+            <label>初始资金 ($)</label>
+            <input type="number" id="cfgInitialCapital" value="10000" step="1000">
+          </div>
+          <div class="config-item">
+            <label>单笔风险 (%)</label>
+            <input type="number" id="cfgRiskPerTrade" value="1" step="0.1" min="0.1" max="5">
+          </div>
+          <div class="config-item">
+            <label>最大回撤 (%)</label>
+            <input type="number" id="cfgMaxDrawdown" value="20" step="1" min="5" max="50">
+          </div>
+        </div>
+        
+        <div class="strategy-section">
+          <h4>📊 交易参数</h4>
+          <div class="config-item">
+            <label>止盈点数</label>
+            <input type="number" id="cfgTakeProfit" value="20" step="1" min="5">
+          </div>
+          <div class="config-item">
+            <label>止损点数</label>
+            <input type="number" id="cfgStopLoss" value="20" step="1" min="5">
+          </div>
+          <div class="config-item">
+            <label>挂单间隔 (点)</label>
+            <input type="number" id="cfgPendingInterval" value="5" step="1" min="1">
+          </div>
+        </div>
+        
+        <div class="strategy-section">
+          <h4>📈 合约参数</h4>
+          <div class="config-item">
+            <label>交易品种</label>
+            <select id="cfgSymbol" onchange="syncSymbol()" class="config-select">
+              <option value="XAUUSD">黄金/美元 (XAUUSD)</option>
+              <option value="XAGUSD">白银/美元 (XAGUSD)</option>
+              <option value="EURUSD">欧元/美元 (EURUSD)</option>
+              <option value="GBPUSD">英镑/美元 (GBPUSD)</option>
+              <option value="USDJPY">美元/日元 (USDJPY)</option>
+              <option value="AUDUSD">澳元/美元 (AUDUSD)</option>
+              <option value="USDCAD">美元/加元 (USDCAD)</option>
+              <option value="NZDUSD">纽元/美元 (NZDUSD)</option>
+              <option value="BTCUSD">比特币/美元 (BTCUSD)</option>
+              <option value="ETHUSD">以太坊/美元 (ETHUSD)</option>
+            </select>
+          </div>
+          <div class="config-item">
+            <label>最小手数</label>
+            <input type="number" id="cfgMinLots" value="0.01" step="0.01" readonly>
+          </div>
+          <div class="config-item">
+            <label>最大手数</label>
+            <input type="number" id="cfgMaxLots" value="1.0" step="0.01" readonly>
+          </div>
+        </div>
+      </div>
+      <div class="control-panel" style="margin-top: 20px;">
+        <button class="btn-reset" onclick="loadStrategy()">📥 加载当前配置</button>
+        <button class="btn-start" onclick="showSaveModal()">💾 保存策略</button>
+      </div>
+    </div>
+    
+    <!-- 保存策略弹框 -->
+    <div id="saveModal" class="modal" style="display: none;">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h3>💾 保存策略配置</h3>
+          <button class="modal-close" onclick="closeModal('saveModal')">&times;</button>
+        </div>
+        <div class="modal-body">
+          <div class="config-item">
+            <label>策略名称（可选）</label>
+            <input type="text" id="strategyName" placeholder="例如：激进策略、保守策略...">
+            <small style="color: rgba(255,255,255,0.4); font-size: 12px; margin-top: 4px; display: block;">
+              不填写将自动生成名称（如：策略_03-20 14:30）
+            </small>
+          </div>
+          <div class="config-summary">
+            <h4>当前配置预览</h4>
+            <div id="configPreview"></div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn-reset" onclick="closeModal('saveModal')">取消</button>
+          <button class="btn-start" onclick="confirmSave()">确认保存</button>
+        </div>
+      </div>
+    </div>
+    
+    <!-- 历史记录弹框 -->
+    <div id="historyModal" class="modal" style="display: none;">
+      <div class="modal-content modal-large">
+        <div class="modal-header">
+          <h3>📜 历史策略配置</h3>
+          <button class="modal-close" onclick="closeModal('historyModal')">&times;</button>
+        </div>
+        <div class="modal-body">
+          <div id="historyList" class="history-list">
+            <div class="empty-state">加载中...</div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn-reset" onclick="closeModal('historyModal')">关闭</button>
+        </div>
+      </div>
+    </div>
   </div>
   
+  <script src="/socket.io/socket.io.js"></script>
   <script>
     const socket = io({
       transports: ['websocket', 'polling'],
@@ -403,15 +917,26 @@
     });
     let lastPrice = 0;
     
+    // 分页状态
+    let currentPage = 1;
+    let currentPendingPage = 1;
+    const pageSize = 10;
+    
+    // 持仓和挂单全量数据
+    let allPositions = [];
+    let allPendingOrders = [];
+    
+    console.log('🔍 开始连接 WebSocket...');
+    
     // WebSocket 连接
     socket.on('connect', () => {
-      console.log('✅ 已连接到服务器');
+      console.log('✅ 已连接到服务器，socket.id:', socket.id);
       // 请求初始状态
       socket.emit('command', { action: 'status' });
     });
     
     socket.on('connect_error', (error) => {
-      console.error('❌ 连接失败:', error);
+      console.error('❌ 连接失败:', error.message, error);
     });
     
     socket.on('disconnect', (reason) => {
@@ -419,14 +944,28 @@
     });
     
     socket.on('status', (status) => {
+      console.log('📊 收到状态更新:', status.currentPrice, status.currentEquity, status.isTrading);
       updateUI(status);
     });
     
     socket.on('price', (price) => {
+      console.log('💰 收到价格更新:', price.bid);
       updatePrice(price);
     });
     
+    // 测试：页面加载后立即请求一次状态
+    setTimeout(() => {
+      console.log('📡 测试连接状态，socket.connected:', socket.connected);
+      if (socket.connected) {
+        console.log('✅ Socket 已连接，请求初始状态');
+        socket.emit('command', { action: 'status' });
+      } else {
+        console.error('❌ Socket 未连接，尝试重新连接');
+      }
+    }, 2000);
+    
     function updatePrice(price) {
+      console.log('🔄 更新价格 UI:', price.bid);
       const priceEl = document.getElementById('currentPrice');
       if (lastPrice > 0) {
         priceEl.className = 'card-value ' + (price.bid >= lastPrice ? 'price-up' : 'price-down');
@@ -436,6 +975,12 @@
     }
     
     function updateUI(status) {
+      console.log('🎨 更新 UI，状态:', {
+        isTrading: status.isTrading,
+        currentPrice: status.currentPrice,
+        currentEquity: status.currentEquity
+      });
+      
       // 状态徽章
       const badge = document.getElementById('statusBadge');
       if (status.isStoppedDueToDrawdown) {
@@ -472,60 +1017,50 @@
       profitEl.textContent = '$' + status.totalProfit.toFixed(2);
       profitEl.className = status.totalProfit >= 0 ? 'profit-positive' : 'profit-negative';
       
-      // 持仓
-      const positionsEl = document.getElementById('positionsList');
-      if (status.positions.length === 0) {
-        positionsEl.innerHTML = '<div class="empty-state">暂无持仓</div>';
-      } else {
-        positionsEl.innerHTML = status.positions.map(p => `
-          <div class="position-item">
-            <span class="position-direction ${p.direction === 'BUY' ? 'direction-buy' : 'direction-sell'}">
-              ${p.direction === 'BUY' ? '做多' : '做空'}
-            </span>
-            <div class="position-info">
-              <div class="position-price">${p.lots}手 @ ${p.openPrice.toFixed(2)}</div>
-            </div>
-          </div>
-        `).join('');
+      // 更新持仓数据（全量）
+      if (status.positions) {
+        // 如果是通过分页 API 获取的，保留全量数据
+        if (status.pagination && status.pagination.page === 1) {
+          // 第一页时，我们需要重新获取全量数据
+          // 这里使用一个技巧：从 WebSocket 累积所有持仓
+          const newPositions = status.positions;
+          // 合并去重
+          const existingIds = new Set(allPositions.map(p => p.id));
+          newPositions.forEach(p => {
+            if (!existingIds.has(p.id)) {
+              allPositions.push(p);
+              existingIds.add(p.id);
+            }
+          });
+          // 移除已平仓的
+          allPositions = allPositions.filter(p => p.status === 'OPEN');
+        }
+        document.getElementById('positionCount').textContent = allPositions.length;
+        renderPositions();
       }
       
-      // 挂单
-      const ordersEl = document.getElementById('pendingOrdersList');
-      if (status.pendingOrders.length === 0) {
-        ordersEl.innerHTML = '<div class="empty-state">暂无挂单</div>';
-      } else {
-        ordersEl.innerHTML = status.pendingOrders.map(o => `
-          <div class="order-item">
-            <span class="position-direction ${o.direction === 'BUY' ? 'direction-buy' : 'direction-sell'}">
-              ${o.direction === 'BUY' ? '做多' : '做空'}
-            </span>
-            <div class="position-info">
-              <div class="position-price">${o.lots}手 @ ${o.pendingPrice.toFixed(2)}</div>
-            </div>
-          </div>
-        `).join('');
-      }
-      
-      // 交易历史
-      fetch('/api/history')
-        .then(r => r.json())
-        .then(history => {
-          const tbody = document.getElementById('historyTable');
-          if (history.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="6" class="empty-state">暂无交易记录</td></tr>';
-          } else {
-            tbody.innerHTML = history.slice(-10).reverse().map(t => `
-              <tr>
-                <td>${new Date(t.timestamp).toLocaleTimeString()}</td>
-                <td>${t.action === 'OPEN' ? '开仓' : t.action === 'CLOSE' ? '平仓' : '撤单'}</td>
-                <td><span class="position-direction ${t.direction === 'BUY' ? 'direction-buy' : 'direction-sell'}">${t.direction === 'BUY' ? '做多' : '做空'}</span></td>
-                <td>${t.lots}</td>
-                <td>${(t.openPrice || t.pendingPrice || 0).toFixed(2)}</td>
-                <td class="${t.profit >= 0 ? 'profit-positive' : 'profit-negative'}">${t.profit ? '$' + t.profit.toFixed(2) : '-'}</td>
-              </tr>
-            `).join('');
+      // 更新挂单数据（全量）
+      if (status.pendingOrders) {
+        const newPending = status.pendingOrders;
+        const existingIds = new Set(allPendingOrders.map(p => p.id));
+        newPending.forEach(p => {
+          if (!existingIds.has(p.id)) {
+            allPendingOrders.push(p);
+            existingIds.add(p.id);
           }
         });
+        // 移除已触发的
+        allPendingOrders = allPendingOrders.filter(p => p.status === 'PENDING');
+        document.getElementById('pendingCount').textContent = allPendingOrders.length;
+        renderPendingOrders();
+      }
+      
+      // 分页信息
+      if (status.pagination) {
+        const { page, totalPages, totalPositions } = status.pagination;
+        document.getElementById('positionPageInfo').textContent = `${page} / ${totalPages || 1}`;
+        document.getElementById('positionPagination').style.display = totalPages > 1 ? 'flex' : 'none';
+      }
     }
     
     async function startTrading() {
@@ -555,7 +1090,352 @@
         alert('重置失败：' + e.message);
       }
     }
+    
+    // 策略配置函数
+    async function loadStrategy() {
+      try {
+        const res = await fetch('/api/strategy');
+        const data = await res.json();
+        
+        if (data.success) {
+          const s = data.strategy;
+          document.getElementById('cfgInitialCapital').value = s.initialCapital;
+          document.getElementById('cfgRiskPerTrade').value = (s.riskPerTrade * 100).toFixed(1);
+          document.getElementById('cfgMaxDrawdown').value = (s.maxDrawdown * 100).toFixed(0);
+          document.getElementById('cfgTakeProfit').value = s.takeProfitPoints;
+          document.getElementById('cfgStopLoss').value = s.stopLossPoints;
+          document.getElementById('cfgPendingInterval').value = s.pendingOrderInterval;
+          document.getElementById('cfgSymbol').value = s.symbol;
+          document.getElementById('cfgMinLots').value = s.minLots;
+          document.getElementById('cfgMaxLots').value = s.maxLots;
+          
+          // 同步主界面的品种选择
+          const mainSelect = document.getElementById('symbolSelect');
+          if (mainSelect) {
+            mainSelect.value = s.symbol;
+          }
+          
+          console.log('✅ 策略配置已加载');
+        }
+      } catch (e) {
+        alert('加载失败：' + e.message);
+      }
+    }
+    
+    // 显示保存弹框
+    function showSaveModal() {
+      const config = {
+        initialCapital: parseFloat(document.getElementById('cfgInitialCapital').value),
+        riskPerTrade: parseFloat(document.getElementById('cfgRiskPerTrade').value),
+        maxDrawdown: parseFloat(document.getElementById('cfgMaxDrawdown').value),
+        takeProfitPoints: parseInt(document.getElementById('cfgTakeProfit').value),
+        stopLossPoints: parseInt(document.getElementById('cfgStopLoss').value),
+        pendingOrderInterval: parseInt(document.getElementById('cfgPendingInterval').value)
+      };
+      
+      document.getElementById('configPreview').innerHTML = `
+        <div>初始资金：<strong>$${config.initialCapital.toLocaleString()}</strong></div>
+        <div>单笔风险：<strong>${config.riskPerTrade}%</strong></div>
+        <div>最大回撤：<strong>${config.maxDrawdown}%</strong></div>
+        <div>止盈点数：<strong>${config.takeProfitPoints} 点</strong></div>
+        <div>止损点数：<strong>${config.stopLossPoints} 点</strong></div>
+        <div>挂单间隔：<strong>${config.pendingOrderInterval} 点</strong></div>
+      `;
+      
+      document.getElementById('strategyName').value = '';
+      document.getElementById('saveModal').style.display = 'flex';
+    }
+    
+    // 确认保存
+    async function confirmSave() {
+      const name = document.getElementById('strategyName').value.trim();
+      const config = {
+        initialCapital: parseFloat(document.getElementById('cfgInitialCapital').value),
+        riskPerTrade: parseFloat(document.getElementById('cfgRiskPerTrade').value) / 100,
+        maxDrawdown: parseFloat(document.getElementById('cfgMaxDrawdown').value) / 100,
+        takeProfitPoints: parseInt(document.getElementById('cfgTakeProfit').value),
+        stopLossPoints: parseInt(document.getElementById('cfgStopLoss').value),
+        pendingOrderInterval: parseInt(document.getElementById('cfgPendingInterval').value)
+      };
+      
+      try {
+        const res = await fetch('/api/strategy', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name, config })
+        });
+        
+        const data = await res.json();
+        
+        if (data.success) {
+          alert(`✅ 策略已保存！\n\n名称：${data.record.name}\n时间：${new Date(data.record.timestamp).toLocaleString('zh-CN')}`);
+          closeModal('saveModal');
+          console.log('💾 策略配置已保存:', data.record);
+        }
+      } catch (e) {
+        alert('保存失败：' + e.message);
+      }
+    }
+    
+    // 显示历史弹框
+    async function showHistoryModal() {
+      document.getElementById('historyModal').style.display = 'flex';
+      document.getElementById('historyList').innerHTML = '<div class="empty-state">加载中...</div>';
+      
+      try {
+        const res = await fetch('/api/strategy/history');
+        const data = await res.json();
+        
+        if (data.success && data.history.length > 0) {
+          document.getElementById('historyList').innerHTML = data.history.map(h => `
+            <div class="history-item">
+              <div class="history-header">
+                <span class="history-name">📋 ${h.name}</span>
+                <span class="history-time">${new Date(h.timestamp).toLocaleString('zh-CN')}</span>
+              </div>
+              <div class="history-config">
+                <div class="history-config-item">
+                  <label>资金</label>
+                  <span>$${h.config.initialCapital.toLocaleString()}</span>
+                </div>
+                <div class="history-config-item">
+                  <label>单笔风险</label>
+                  <span>${(h.config.riskPerTrade * 100).toFixed(1)}%</span>
+                </div>
+                <div class="history-config-item">
+                  <label>最大回撤</label>
+                  <span>${(h.config.maxDrawdown * 100).toFixed(0)}%</span>
+                </div>
+                <div class="history-config-item">
+                  <label>止盈/止损</label>
+                  <span>${h.config.takeProfitPoints}/${h.config.stopLossPoints}点</span>
+                </div>
+                <div class="history-config-item">
+                  <label>挂单间隔</label>
+                  <span>${h.config.pendingOrderInterval}点</span>
+                </div>
+              </div>
+              <div class="history-actions">
+                <button class="btn-apply" onclick="applyHistory(${h.id})">▶ 应用此策略</button>
+                <button class="btn-delete" onclick="deleteHistory(${h.id})">🗑 删除</button>
+              </div>
+            </div>
+          `).join('');
+        } else {
+          document.getElementById('historyList').innerHTML = '<div class="empty-state">暂无历史记录</div>';
+        }
+      } catch (e) {
+        document.getElementById('historyList').innerHTML = `<div class="empty-state" style="color: #ff6464;">加载失败：${e.message}</div>`;
+      }
+    }
+    
+    // 应用历史策略
+    async function applyHistory(id) {
+      try {
+        const res = await fetch(`/api/strategy/history/${id}/apply`, { method: 'POST' });
+        const data = await res.json();
+        
+        if (data.success) {
+          alert(`✅ 已应用策略：${data.message}`);
+          closeModal('historyModal');
+          loadStrategy(); // 刷新当前配置
+        }
+      } catch (e) {
+        alert('应用失败：' + e.message);
+      }
+    }
+    
+    // 删除历史策略
+    async function deleteHistory(id) {
+      if (!confirm('确定要删除这条策略记录吗？')) return;
+      
+      try {
+        const res = await fetch(`/api/strategy/history/${id}`, { method: 'DELETE' });
+        const data = await res.json();
+        
+        if (data.success) {
+          showHistoryModal(); // 刷新列表
+        }
+      } catch (e) {
+        alert('删除失败：' + e.message);
+      }
+    }
+    
+    // 关闭弹框
+    function closeModal(modalId) {
+      document.getElementById(modalId).style.display = 'none';
+    }
+    
+    // 点击弹框外部关闭
+    window.addEventListener('click', (e) => {
+      if (e.target.classList.contains('modal')) {
+        e.target.style.display = 'none';
+      }
+    });
+    
+    // 渲染持仓（带分页和时间）
+    function renderPositions() {
+      const positionsEl = document.getElementById('positionsList');
+      const startPos = (currentPage - 1) * pageSize;
+      const pagePositions = allPositions.slice(startPos, startPos + pageSize);
+      
+      if (pagePositions.length === 0) {
+        positionsEl.innerHTML = '<div class="empty-state">暂无持仓</div>';
+      } else {
+        positionsEl.innerHTML = pagePositions.map(p => {
+          const timeStr = new Date(p.timestamp).toLocaleString('zh-CN', {
+            year: 'numeric',
+            month: '2-digit',
+            day: '2-digit',
+            hour: '2-digit',
+            minute: '2-digit',
+            second: '2-digit'
+          });
+          return `
+            <div class="position-item">
+              <div style="flex: 1;">
+                <span class="position-direction ${p.direction === 'BUY' ? 'direction-buy' : 'direction-sell'}">
+                  ${p.direction === 'BUY' ? '做多' : '做空'}
+                </span>
+                <div class="position-info">
+                  <div class="position-price">${p.lots}手 @ ${p.openPrice.toFixed(2)}</div>
+                  <div class="position-time">🕐 ${timeStr}</div>
+                </div>
+              </div>
+            </div>
+          `;
+        }).join('');
+      }
+    }
+    
+    // 渲染挂单（带分页和时间）
+    function renderPendingOrders() {
+      const ordersEl = document.getElementById('pendingOrdersList');
+      const startPending = (currentPendingPage - 1) * pageSize;
+      const pagePending = allPendingOrders.slice(startPending, startPending + pageSize);
+      
+      if (pagePending.length === 0) {
+        ordersEl.innerHTML = '<div class="empty-state">暂无挂单</div>';
+      } else {
+        ordersEl.innerHTML = pagePending.map(o => {
+          const timeStr = new Date(o.timestamp).toLocaleString('zh-CN', {
+            year: 'numeric',
+            month: '2-digit',
+            day: '2-digit',
+            hour: '2-digit',
+            minute: '2-digit',
+            second: '2-digit'
+          });
+          return `
+            <div class="order-item">
+              <div style="flex: 1;">
+                <span class="position-direction ${o.direction === 'BUY' ? 'direction-buy' : 'direction-sell'}">
+                  ${o.direction === 'BUY' ? '做多' : '做空'}
+                </span>
+                <div class="position-info">
+                  <div class="position-price">${o.lots}手 @ ${o.pendingPrice.toFixed(2)}</div>
+                  <div class="position-time">🕐 ${timeStr}</div>
+                </div>
+              </div>
+            </div>
+          `;
+        }).join('');
+      }
+    }
+    
+    // 分页函数
+    function prevPage() {
+      if (currentPage > 1) {
+        currentPage--;
+        renderPositions();
+        loadStatusWithPagination();
+      }
+    }
+    
+    function nextPage() {
+      currentPage++;
+      renderPositions();
+      loadStatusWithPagination();
+    }
+    
+    function prevPendingPage() {
+      if (currentPendingPage > 1) {
+        currentPendingPage--;
+        renderPendingOrders();
+      }
+    }
+    
+    function nextPendingPage() {
+      currentPendingPage++;
+      renderPendingOrders();
+    }
+    
+    // 带分页加载状态
+    async function loadStatusWithPagination() {
+      try {
+        const res = await fetch(`/api/status?page=${currentPage}&pageSize=${pageSize}`);
+        const status = await res.json();
+        updateUI(status);
+      } catch (e) {
+        console.error('加载状态失败:', e);
+      }
+    }
+    
+    // 切换交易品种
+    async function changeSymbol() {
+      const select = document.getElementById('symbolSelect');
+      const symbol = select.value;
+      const option = select.options[select.selectedIndex];
+      
+      // 获取品种参数
+      const symbolData = {
+        XAUUSD: { pointValue: 0.1, contractSize: 100 },
+        XAGUSD: { pointValue: 0.01, contractSize: 5000 },
+        EURUSD: { pointValue: 0.0001, contractSize: 100000 },
+        GBPUSD: { pointValue: 0.0001, contractSize: 100000 },
+        USDJPY: { pointValue: 0.01, contractSize: 100000 },
+        AUDUSD: { pointValue: 0.0001, contractSize: 100000 },
+        USDCAD: { pointValue: 0.0001, contractSize: 100000 },
+        NZDUSD: { pointValue: 0.0001, contractSize: 100000 },
+        BTCUSD: { pointValue: 0.01, contractSize: 1 },
+        ETHUSD: { pointValue: 0.01, contractSize: 10 }
+      }[symbol];
+      
+      try {
+        const res = await fetch('/api/symbol', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            symbol,
+            ...symbolData
+          })
+        });
+        
+        const data = await res.json();
+        
+        if (data.success) {
+          document.getElementById('currentSymbol').textContent = symbol;
+          // 同步到策略配置
+          document.getElementById('cfgSymbol').value = symbol;
+          console.log(`✅ 已切换到 ${symbol}`);
+        }
+      } catch (e) {
+        alert('切换失败：' + e.message);
+      }
+    }
+    
+    // 同步品种（策略配置 -> 实时价格）
+    function syncSymbol() {
+      const cfgSymbol = document.getElementById('cfgSymbol').value;
+      const mainSelect = document.getElementById('symbolSelect');
+      mainSelect.value = cfgSymbol;
+      changeSymbol();
+    }
+    
+    // 页面加载时自动加载策略配置
+    window.addEventListener('DOMContentLoaded', () => {
+      setTimeout(loadStrategy, 1000);
+    });
   </script>
-  <script src="/socket.io/socket.io.js"></script>
 </body>
 </html>

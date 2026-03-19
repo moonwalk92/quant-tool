@@ -36,6 +36,9 @@ class TradingEngine {
     // MT4 客户端
     this.mt4 = options.useRealMT4 ? new MT4Client() : new MockMT4Client();
     this.mt4Connected = false;
+    
+    // 价格模式
+    this.useRealPrice = options.useRealPrice || false;
   }
 
   /**
@@ -53,9 +56,19 @@ class TradingEngine {
   }
 
   /**
-   * 获取实时价格（通过 MT4 桥接）
+   * 获取实时价格（通过 MT4 桥接或外部 API）
    */
   async getRealTimePrice() {
+    // 如果使用真实价格模式，返回当前价格（由 server.js 推送）
+    if (this.useRealPrice && this.currentPrice > 0) {
+      return {
+        bid: this.currentPrice,
+        ask: this.currentPrice + 0.3,
+        symbol: this.symbol,
+        timestamp: Date.now()
+      };
+    }
+    
     try {
       const price = await this.mt4.getPrice(this.symbol);
       this.currentPrice = price.bid;

@@ -8,10 +8,61 @@ const http = require('http');
 const socketIo = require('socket.io');
 const path = require('path');
 const TradingEngine = require('./trading-engine');
+const PriceAPI = require('./price-api');
+const fs = require('fs');
 
 const app = express();
 const server = http.createServer(app);
 const io = socketIo(server);
+
+// 创建价格 API 实例
+const priceAPI = new PriceAPI();
+
+// 历史策略存储
+const HISTORY_FILE = path.join(__dirname, '../data/strategy-history.json');
+let strategyHistory = [];
+
+// 加载历史策略
+try {
+  if (fs.existsSync(HISTORY_FILE)) {
+    strategyHistory = JSON.parse(fs.readFileSync(HISTORY_FILE, 'utf8'));
+    console.log(`[策略] 已加载 ${strategyHistory.length} 条历史记录`);
+  }
+} catch (e) {
+  console.warn('[策略] 加载历史失败:', e.message);
+}
+
+// 保存历史策略
+function saveStrategyToHistory(name, config) {
+  const record = {
+    id: Date.now(),
+    name: name || `策略_${new Date().toLocaleString('zh-CN', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })}`,
+    config: { ...config },
+    timestamp: Date.now(),
+    appliedAt: new Date().toISOString()
+  };
+  
+  strategyHistory.unshift(record); // 新记录放在最前面
+  
+  // 只保留最近 50 条
+  if (strategyHistory.length > 50) {
+    strategyHistory = strategyHistory.slice(0, 50);
+  }
+  
+  // 保存到文件
+  try {
+    const dir = path.dirname(HISTORY_FILE);
+    if (!fs.existsSync(dir)) {
+      fs.mkdirSync(dir, { recursive: true });
+    }
+    fs.writeFileSync(HISTORY_FILE, JSON.stringify(strategyHistory, null, 2));
+    console.log(`[策略] 已保存：${record.name}`);
+  } catch (e) {
+    console.error('[策略] 保存历史失败:', e.message);
+  }
+  
+  return record;
+}
 
 // 创建交易引擎实例
 const engine = new TradingEngine({
@@ -25,7 +76,8 @@ const engine = new TradingEngine({
   pendingOrderInterval: 5,
   maxDrawdown: 0.20,
   pointValue: 0.1,
-  contractSize: 100
+  contractSize: 100,
+  useRealPrice: true
 });
 
 // 静态文件服务
@@ -36,7 +88,36 @@ app.use(express.json());
 
 // 获取当前状态
 app.get('/api/status', (req, res) => {
-  res.json(engine.getStatus());
+  const status = engine.getStatus();
+  
+  // 支持分页参数
+  const page = parseInt(req.query.page) || 1;
+  const pageSize = parseInt(req.query.pageSize) || 10;
+  
+  // 分页处理持仓和挂单
+  const positions = status.positions || [];
+  const pendingOrders = status.pendingOrders || [];
+  
+  const totalPositions = positions.length;
+  const totalPending = pendingOrders.length;
+  const totalPages = Math.ceil(totalPositions / pageSize);
+  
+  const startPos = (page - 1) * pageSize;
+  const paginatedPositions = positions.slice(startPos, startPos + pageSize);
+  const paginatedPending = pendingOrders.slice(0, Math.min(pageSize, pendingOrders.length));
+  
+  res.json({
+    ...status,
+    positions: paginatedPositions,
+    pendingOrders: paginatedPending,
+    pagination: {
+      page,
+      pageSize,
+      totalPositions,
+      totalPending,
+      totalPages
+    }
+  });
 });
 
 // 启动交易
@@ -84,6 +165,162 @@ app.post('/api/config', (req, res) => {
   res.json({ success: true, status: engine.getStatus() });
 });
 
+// 获取策略配置
+app.get('/api/strategy', (req, res) => {
+  res.json({
+    success: true,
+    strategy: {
+      // 基础配置
+      initialCapital: engine.initialCapital,
+      riskPerTrade: engine.riskPerTrade,
+      maxDrawdown: engine.maxDrawdown,
+      
+      // 交易参数
+      takeProfitPoints: engine.takeProfitPoints,
+      stopLossPoints: engine.stopLossPoints,
+      pendingOrderInterval: engine.pendingOrderInterval,
+      
+      // 合约参数
+      symbol: engine.symbol,
+      pointValue: engine.pointValue,
+      contractSize: engine.contractSize,
+      minLots: engine.minLots,
+      maxLots: engine.maxLots,
+      
+      // 可用交易品种
+      availableSymbols: [
+        { value: 'XAUUSD', label: '黄金/美元', pointValue: 0.1, contractSize: 100 },
+        { value: 'XAGUSD', label: '白银/美元', pointValue: 0.01, contractSize: 5000 },
+        { value: 'EURUSD', label: '欧元/美元', pointValue: 0.0001, contractSize: 100000 },
+        { value: 'GBPUSD', label: '英镑/美元', pointValue: 0.0001, contractSize: 100000 },
+        { value: 'USDJPY', label: '美元/日元', pointValue: 0.01, contractSize: 100000 },
+        { value: 'AUDUSD', label: '澳元/美元', pointValue: 0.0001, contractSize: 100000 },
+        { value: 'USDCAD', label: '美元/加元', pointValue: 0.0001, contractSize: 100000 },
+        { value: 'NZDUSD', label: '纽元/美元', pointValue: 0.0001, contractSize: 100000 },
+        { value: 'BTCUSD', label: '比特币/美元', pointValue: 0.01, contractSize: 1 },
+        { value: 'ETHUSD', label: '以太坊/美元', pointValue: 0.01, contractSize: 10 }
+      ]
+    }
+  });
+});
+
+// 更新交易品种
+app.post('/api/symbol', (req, res) => {
+  const { symbol, pointValue, contractSize } = req.body;
+  
+  if (symbol) {
+    engine.symbol = symbol;
+    if (pointValue) engine.pointValue = pointValue;
+    if (contractSize) engine.contractSize = contractSize;
+    
+    res.json({
+      success: true,
+      message: `已切换到 ${symbol}`,
+      symbol: engine.symbol,
+      pointValue: engine.pointValue,
+      contractSize: engine.contractSize
+    });
+  } else {
+    res.status(400).json({ success: false, error: '缺少交易品种参数' });
+  }
+});
+
+// 保存策略配置（带名称）
+app.post('/api/strategy', (req, res) => {
+  const { name, config } = req.body;
+  
+  try {
+    // 保存到历史
+    const record = saveStrategyToHistory(name, config);
+    
+    // 应用到引擎
+    if (config.initialCapital) engine.initialCapital = config.initialCapital;
+    if (config.riskPerTrade) engine.riskPerTrade = config.riskPerTrade;
+    if (config.maxDrawdown) engine.maxDrawdown = config.maxDrawdown;
+    if (config.takeProfitPoints) engine.takeProfitPoints = config.takeProfitPoints;
+    if (config.stopLossPoints) engine.stopLossPoints = config.stopLossPoints;
+    if (config.pendingOrderInterval) engine.pendingOrderInterval = config.pendingOrderInterval;
+    
+    res.json({
+      success: true,
+      message: '策略已保存',
+      record: {
+        id: record.id,
+        name: record.name,
+        timestamp: record.timestamp
+      }
+    });
+  } catch (e) {
+    res.status(500).json({ success: false, error: e.message });
+  }
+});
+
+// 获取历史策略列表
+app.get('/api/strategy/history', (req, res) => {
+  res.json({
+    success: true,
+    history: strategyHistory.map(h => ({
+      id: h.id,
+      name: h.name,
+      timestamp: h.timestamp,
+      appliedAt: h.appliedAt,
+      config: {
+        initialCapital: h.config.initialCapital,
+        riskPerTrade: h.config.riskPerTrade,
+        maxDrawdown: h.config.maxDrawdown,
+        takeProfitPoints: h.config.takeProfitPoints,
+        stopLossPoints: h.config.stopLossPoints,
+        pendingOrderInterval: h.config.pendingOrderInterval
+      }
+    }))
+  });
+});
+
+// 获取单个历史策略详情
+app.get('/api/strategy/history/:id', (req, res) => {
+  const record = strategyHistory.find(h => h.id === parseInt(req.params.id));
+  
+  if (record) {
+    res.json({ success: true, record });
+  } else {
+    res.status(404).json({ success: false, error: '记录不存在' });
+  }
+});
+
+// 应用历史策略
+app.post('/api/strategy/history/:id/apply', (req, res) => {
+  const record = strategyHistory.find(h => h.id === parseInt(req.params.id));
+  
+  if (record) {
+    const config = record.config;
+    
+    // 应用到引擎
+    if (config.initialCapital) engine.initialCapital = config.initialCapital;
+    if (config.riskPerTrade) engine.riskPerTrade = config.riskPerTrade;
+    if (config.maxDrawdown) engine.maxDrawdown = config.maxDrawdown;
+    if (config.takeProfitPoints) engine.takeProfitPoints = config.takeProfitPoints;
+    if (config.stopLossPoints) engine.stopLossPoints = config.stopLossPoints;
+    if (config.pendingOrderInterval) engine.pendingOrderInterval = config.pendingOrderInterval;
+    
+    res.json({ success: true, message: `已应用策略：${record.name}` });
+  } else {
+    res.status(404).json({ success: false, error: '记录不存在' });
+  }
+});
+
+// 删除历史策略
+app.delete('/api/strategy/history/:id', (req, res) => {
+  const index = strategyHistory.findIndex(h => h.id === parseInt(req.params.id));
+  
+  if (index !== -1) {
+    const removed = strategyHistory.splice(index, 1);
+    fs.writeFileSync(HISTORY_FILE, JSON.stringify(strategyHistory, null, 2));
+    res.json({ success: true, message: `已删除：${removed[0].name}` });
+  } else {
+    res.status(404).json({ success: false, error: '记录不存在' });
+  }
+});
+
 // WebSocket 连接
 io.on('connection', (socket) => {
   console.log('[WebSocket] 客户端连接');
@@ -120,35 +357,27 @@ io.on('connection', (socket) => {
   });
 });
 
-// 模拟价格更新（实际使用时需要连接 MT4）
-let simulatedPrice = 2000;
-let priceDirection = 1;
-
-setInterval(async () => {
-  // 模拟价格波动
-  const change = (Math.random() - 0.5) * 2;
-  simulatedPrice += change * priceDirection;
-  
-  // 偶尔反转方向
-  if (Math.random() < 0.1) {
-    priceDirection *= -1;
+// 真实价格更新（每秒从 API 获取）
+async function updateRealPrice() {
+  try {
+    const priceData = await priceAPI.getPriceData();
+    
+    // 更新引擎
+    await engine.onPriceUpdate(priceData);
+    
+    // 广播价格
+    io.emit('price', priceData);
+    io.emit('status', engine.getStatus());
+    
+    console.log(`[价格推送] XAUUSD: $${priceData.bid.toFixed(2)}`);
+  } catch (error) {
+    console.error('[价格更新失败]', error.message);
   }
-  
-  const priceData = {
-    bid: simulatedPrice,
-    ask: simulatedPrice + 0.3,
-    symbol: 'XAUUSD',
-    timestamp: Date.now()
-  };
-  
-  // 更新引擎
-  await engine.onPriceUpdate(priceData);
-  
-  // 广播价格
-  io.emit('price', priceData);
-  io.emit('status', engine.getStatus());
-  
-}, 1000); // 每秒更新
+}
+
+// 立即获取一次价格，然后每秒更新
+updateRealPrice();
+setInterval(updateRealPrice, 1000);
 
 const PORT = process.env.PORT || 3000;
 
