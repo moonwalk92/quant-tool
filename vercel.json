@@ -1,0 +1,12 @@
+{
+  "buildCommand": "echo 'No build needed'",
+  "outputDirectory": "public",
+  "devCommand": "echo 'Development mode'",
+  "installCommand": "echo 'No install needed'",
+  "routes": [
+    {
+      "src": "/(.*)",
+      "dest": "/public/$1"
+    }
+  ]
+}
