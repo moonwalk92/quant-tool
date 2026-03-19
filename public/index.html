@@ -395,12 +395,27 @@
   </div>
   
   <script>
-    const socket = io();
+    const socket = io({
+      transports: ['websocket', 'polling'],
+      reconnection: true,
+      reconnectionDelay: 1000,
+      reconnectionAttempts: 10
+    });
     let lastPrice = 0;
     
     // WebSocket 连接
     socket.on('connect', () => {
-      console.log('已连接到服务器');
+      console.log('✅ 已连接到服务器');
+      // 请求初始状态
+      socket.emit('command', { action: 'status' });
+    });
+    
+    socket.on('connect_error', (error) => {
+      console.error('❌ 连接失败:', error);
+    });
+    
+    socket.on('disconnect', (reason) => {
+      console.warn('⚠️ 断开连接:', reason);
     });
     
     socket.on('status', (status) => {

@@ -93,7 +93,9 @@ io.on('connection', (socket) => {
   
   // 定时推送状态（每秒）
   const interval = setInterval(() => {
-    socket.emit('status', engine.getStatus());
+    const status = engine.getStatus();
+    socket.emit('status', status);
+    console.log('[WebSocket] 推送状态:', status.currentPrice, status.currentEquity);
   }, 1000);
   
   socket.on('disconnect', () => {
