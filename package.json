@@ -1,0 +1,22 @@
+{
+  "name": "quant-tool",
+  "version": "1.0.0",
+  "description": "MT4 量化交易工具 - 网页版",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "start:mt4": "./start-mt4-bridge.sh",
+    "start:win": "cd mt4-bridge && start.bat",
+    "dev": "nodemon src/server.js",
+    "bridge": "cd mt4-bridge && python3 mt4_bridge.py"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "node-fetch": "^2.6.9",
+    "socket.io": "^4.6.1",
+    "zeromq": "^6.5.0"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.1"
+  }
+}

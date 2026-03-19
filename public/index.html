@@ -1,0 +1,546 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>量化交易工具 - MT4</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+      min-height: 100vh;
+      color: #fff;
+    }
+    
+    .container {
+      max-width: 1400px;
+      margin: 0 auto;
+      padding: 20px;
+    }
+    
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 20px 0;
+      border-bottom: 1px solid rgba(255,255,255,0.1);
+      margin-bottom: 30px;
+    }
+    
+    h1 {
+      font-size: 28px;
+      background: linear-gradient(90deg, #00d9ff, #00ff88);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    
+    .status-badge {
+      padding: 8px 16px;
+      border-radius: 20px;
+      font-size: 14px;
+      font-weight: 600;
+    }
+    
+    .status-running {
+      background: rgba(0, 255, 136, 0.2);
+      color: #00ff88;
+      border: 1px solid #00ff88;
+    }
+    
+    .status-stopped {
+      background: rgba(255, 100, 100, 0.2);
+      color: #ff6464;
+      border: 1px solid #ff6464;
+    }
+    
+    .status-danger {
+      background: rgba(255, 64, 64, 0.3);
+      color: #ff4040;
+      border: 1px solid #ff4040;
+      animation: pulse 2s infinite;
+    }
+    
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.7; }
+    }
+    
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      gap: 20px;
+      margin-bottom: 30px;
+    }
+    
+    .card {
+      background: rgba(255, 255, 255, 0.05);
+      border-radius: 16px;
+      padding: 24px;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+    
+    .card-title {
+      font-size: 14px;
+      color: rgba(255, 255, 255, 0.6);
+      margin-bottom: 12px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+    
+    .card-value {
+      font-size: 32px;
+      font-weight: 700;
+      margin-bottom: 8px;
+    }
+    
+    .card-subtitle {
+      font-size: 14px;
+      color: rgba(255, 255, 255, 0.5);
+    }
+    
+    .price-up { color: #00ff88; }
+    .price-down { color: #ff6464; }
+    
+    .control-panel {
+      display: flex;
+      gap: 12px;
+      margin-top: 20px;
+    }
+    
+    button {
+      flex: 1;
+      padding: 14px 24px;
+      border: none;
+      border-radius: 12px;
+      font-size: 16px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.3s;
+    }
+    
+    .btn-start {
+      background: linear-gradient(135deg, #00d9ff, #00ff88);
+      color: #1a1a2e;
+    }
+    
+    .btn-start:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 10px 30px rgba(0, 255, 136, 0.3);
+    }
+    
+    .btn-stop {
+      background: rgba(255, 100, 100, 0.2);
+      color: #ff6464;
+      border: 1px solid #ff6464;
+    }
+    
+    .btn-stop:hover {
+      background: rgba(255, 100, 100, 0.3);
+    }
+    
+    .btn-reset {
+      background: rgba(255, 255, 255, 0.1);
+      color: #fff;
+      border: 1px solid rgba(255, 255, 255, 0.3);
+    }
+    
+    .btn-reset:hover {
+      background: rgba(255, 255, 255, 0.2);
+    }
+    
+    button:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+      transform: none !important;
+    }
+    
+    .positions-list, .orders-list {
+      margin-top: 16px;
+    }
+    
+    .position-item, .order-item {
+      background: rgba(255, 255, 255, 0.05);
+      border-radius: 8px;
+      padding: 12px;
+      margin-bottom: 8px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    
+    .position-direction {
+      font-weight: 700;
+      padding: 4px 8px;
+      border-radius: 4px;
+      font-size: 12px;
+    }
+    
+    .direction-buy {
+      background: rgba(0, 255, 136, 0.2);
+      color: #00ff88;
+    }
+    
+    .direction-sell {
+      background: rgba(255, 100, 100, 0.2);
+      color: #ff6464;
+    }
+    
+    .position-info {
+      flex: 1;
+      margin-left: 12px;
+    }
+    
+    .position-price {
+      font-size: 14px;
+      color: rgba(255, 255, 255, 0.8);
+    }
+    
+    .position-profit {
+      font-size: 14px;
+      font-weight: 600;
+    }
+    
+    .profit-positive { color: #00ff88; }
+    .profit-negative { color: #ff6464; }
+    
+    .config-form {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+    }
+    
+    .form-group {
+      display: flex;
+      flex-direction: column;
+    }
+    
+    .form-group label {
+      font-size: 12px;
+      color: rgba(255, 255, 255, 0.6);
+      margin-bottom: 6px;
+    }
+    
+    .form-group input {
+      background: rgba(255, 255, 255, 0.1);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      border-radius: 8px;
+      padding: 10px 12px;
+      color: #fff;
+      font-size: 14px;
+    }
+    
+    .form-group input:focus {
+      outline: none;
+      border-color: #00d9ff;
+    }
+    
+    .history-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 16px;
+    }
+    
+    .history-table th,
+    .history-table td {
+      padding: 12px;
+      text-align: left;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    }
+    
+    .history-table th {
+      font-size: 12px;
+      color: rgba(255, 255, 255, 0.6);
+      text-transform: uppercase;
+    }
+    
+    .history-table td {
+      font-size: 14px;
+    }
+    
+    .empty-state {
+      text-align: center;
+      padding: 40px;
+      color: rgba(255, 255, 255, 0.4);
+    }
+    
+    .drawdown-warning {
+      background: rgba(255, 64, 64, 0.2);
+      border: 1px solid #ff4040;
+      border-radius: 12px;
+      padding: 16px;
+      margin-bottom: 20px;
+      text-align: center;
+    }
+    
+    .drawdown-warning h3 {
+      color: #ff4040;
+      margin-bottom: 8px;
+    }
+    
+    .progress-bar {
+      width: 100%;
+      height: 8px;
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 4px;
+      overflow: hidden;
+      margin-top: 8px;
+    }
+    
+    .progress-fill {
+      height: 100%;
+      background: linear-gradient(90deg, #00ff88, #ff4040);
+      transition: width 0.3s;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>🤖 量化交易工具</h1>
+      <div id="statusBadge" class="status-badge status-stopped">已停止</div>
+    </header>
+    
+    <div id="drawdownWarning" class="drawdown-warning" style="display: none;">
+      <h3>⚠️ 触发最大回撤限制</h3>
+      <p>交易已自动停止，请检查账户风险后点击"重置"按钮</p>
+    </div>
+    
+    <div class="grid">
+      <!-- 实时价格 -->
+      <div class="card">
+        <div class="card-title">实时价格</div>
+        <div class="card-value" id="currentPrice">--</div>
+        <div class="card-subtitle">XAUUSD</div>
+      </div>
+      
+      <!-- 当前权益 -->
+      <div class="card">
+        <div class="card-title">当前权益</div>
+        <div class="card-value" id="currentEquity">$--</div>
+        <div class="card-subtitle">初始：$<span id="initialEquity">--</span></div>
+      </div>
+      
+      <!-- 回撤 -->
+      <div class="card">
+        <div class="card-title">当日回撤</div>
+        <div class="card-value" id="drawdown">--%</div>
+        <div class="progress-bar">
+          <div class="progress-fill" id="drawdownProgress" style="width: 0%"></div>
+        </div>
+      </div>
+      
+      <!-- 交易统计 -->
+      <div class="card">
+        <div class="card-title">交易统计</div>
+        <div class="card-value" id="totalTrades">0</div>
+        <div class="card-subtitle">总盈亏：<span id="totalProfit">$0.00</span></div>
+      </div>
+    </div>
+    
+    <!-- 控制面板 -->
+    <div class="card">
+      <div class="card-title">控制面板</div>
+      <div class="control-panel">
+        <button class="btn-start" id="btnStart" onclick="startTrading()">▶ 启动交易</button>
+        <button class="btn-stop" id="btnStop" onclick="stopTrading()" disabled>⏹ 停止交易</button>
+        <button class="btn-reset" id="btnReset" onclick="resetEngine()">🔄 重置</button>
+      </div>
+    </div>
+    
+    <div class="grid" style="margin-top: 20px;">
+      <!-- 当前持仓 -->
+      <div class="card">
+        <div class="card-title">当前持仓</div>
+        <div id="positionsList" class="positions-list">
+          <div class="empty-state">暂无持仓</div>
+        </div>
+      </div>
+      
+      <!-- 挂单 -->
+      <div class="card">
+        <div class="card-title">挂单</div>
+        <div id="pendingOrdersList" class="orders-list">
+          <div class="empty-state">暂无挂单</div>
+        </div>
+      </div>
+    </div>
+    
+    <!-- 交易历史 -->
+    <div class="card" style="margin-top: 20px;">
+      <div class="card-title">交易历史</div>
+      <table class="history-table">
+        <thead>
+          <tr>
+            <th>时间</th>
+            <th>类型</th>
+            <th>方向</th>
+            <th>手数</th>
+            <th>价格</th>
+            <th>盈亏</th>
+          </tr>
+        </thead>
+        <tbody id="historyTable">
+          <tr>
+            <td colspan="6" class="empty-state">暂无交易记录</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+  
+  <script>
+    const socket = io();
+    let lastPrice = 0;
+    
+    // WebSocket 连接
+    socket.on('connect', () => {
+      console.log('已连接到服务器');
+    });
+    
+    socket.on('status', (status) => {
+      updateUI(status);
+    });
+    
+    socket.on('price', (price) => {
+      updatePrice(price);
+    });
+    
+    function updatePrice(price) {
+      const priceEl = document.getElementById('currentPrice');
+      if (lastPrice > 0) {
+        priceEl.className = 'card-value ' + (price.bid >= lastPrice ? 'price-up' : 'price-down');
+      }
+      priceEl.textContent = price.bid.toFixed(2);
+      lastPrice = price.bid;
+    }
+    
+    function updateUI(status) {
+      // 状态徽章
+      const badge = document.getElementById('statusBadge');
+      if (status.isStoppedDueToDrawdown) {
+        badge.className = 'status-badge status-danger';
+        badge.textContent = '⚠️ 回撤限制';
+        document.getElementById('drawdownWarning').style.display = 'block';
+      } else if (status.isTrading) {
+        badge.className = 'status-badge status-running';
+        badge.textContent = '运行中';
+        document.getElementById('drawdownWarning').style.display = 'none';
+      } else {
+        badge.className = 'status-badge status-stopped';
+        badge.textContent = '已停止';
+        document.getElementById('drawdownWarning').style.display = 'none';
+      }
+      
+      // 按钮状态
+      document.getElementById('btnStart').disabled = status.isTrading;
+      document.getElementById('btnStop').disabled = !status.isTrading || status.isStoppedDueToDrawdown;
+      document.getElementById('btnReset').disabled = !status.isStoppedDueToDrawdown;
+      
+      // 权益
+      document.getElementById('currentEquity').textContent = '$' + status.currentEquity.toFixed(2);
+      document.getElementById('initialEquity').textContent = status.dailyInitialEquity.toFixed(2);
+      
+      // 回撤
+      const drawdown = status.drawdown * 100;
+      document.getElementById('drawdown').textContent = drawdown.toFixed(2) + '%';
+      document.getElementById('drawdownProgress').style.width = Math.min(drawdown / 0.2 * 100, 100) + '%';
+      
+      // 交易统计
+      document.getElementById('totalTrades').textContent = status.totalTrades;
+      const profitEl = document.getElementById('totalProfit');
+      profitEl.textContent = '$' + status.totalProfit.toFixed(2);
+      profitEl.className = status.totalProfit >= 0 ? 'profit-positive' : 'profit-negative';
+      
+      // 持仓
+      const positionsEl = document.getElementById('positionsList');
+      if (status.positions.length === 0) {
+        positionsEl.innerHTML = '<div class="empty-state">暂无持仓</div>';
+      } else {
+        positionsEl.innerHTML = status.positions.map(p => `
+          <div class="position-item">
+            <span class="position-direction ${p.direction === 'BUY' ? 'direction-buy' : 'direction-sell'}">
+              ${p.direction === 'BUY' ? '做多' : '做空'}
+            </span>
+            <div class="position-info">
+              <div class="position-price">${p.lots}手 @ ${p.openPrice.toFixed(2)}</div>
+            </div>
+          </div>
+        `).join('');
+      }
+      
+      // 挂单
+      const ordersEl = document.getElementById('pendingOrdersList');
+      if (status.pendingOrders.length === 0) {
+        ordersEl.innerHTML = '<div class="empty-state">暂无挂单</div>';
+      } else {
+        ordersEl.innerHTML = status.pendingOrders.map(o => `
+          <div class="order-item">
+            <span class="position-direction ${o.direction === 'BUY' ? 'direction-buy' : 'direction-sell'}">
+              ${o.direction === 'BUY' ? '做多' : '做空'}
+            </span>
+            <div class="position-info">
+              <div class="position-price">${o.lots}手 @ ${o.pendingPrice.toFixed(2)}</div>
+            </div>
+          </div>
+        `).join('');
+      }
+      
+      // 交易历史
+      fetch('/api/history')
+        .then(r => r.json())
+        .then(history => {
+          const tbody = document.getElementById('historyTable');
+          if (history.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="6" class="empty-state">暂无交易记录</td></tr>';
+          } else {
+            tbody.innerHTML = history.slice(-10).reverse().map(t => `
+              <tr>
+                <td>${new Date(t.timestamp).toLocaleTimeString()}</td>
+                <td>${t.action === 'OPEN' ? '开仓' : t.action === 'CLOSE' ? '平仓' : '撤单'}</td>
+                <td><span class="position-direction ${t.direction === 'BUY' ? 'direction-buy' : 'direction-sell'}">${t.direction === 'BUY' ? '做多' : '做空'}</span></td>
+                <td>${t.lots}</td>
+                <td>${(t.openPrice || t.pendingPrice || 0).toFixed(2)}</td>
+                <td class="${t.profit >= 0 ? 'profit-positive' : 'profit-negative'}">${t.profit ? '$' + t.profit.toFixed(2) : '-'}</td>
+              </tr>
+            `).join('');
+          }
+        });
+    }
+    
+    async function startTrading() {
+      try {
+        const res = await fetch('/api/start', { method: 'POST' });
+        const data = await res.json();
+        if (!data.success) {
+          alert('启动失败：' + (data.error || '未知错误'));
+        }
+      } catch (e) {
+        alert('启动失败：' + e.message);
+      }
+    }
+    
+    async function stopTrading() {
+      try {
+        await fetch('/api/stop', { method: 'POST' });
+      } catch (e) {
+        alert('停止失败：' + e.message);
+      }
+    }
+    
+    async function resetEngine() {
+      try {
+        await fetch('/api/reset', { method: 'POST' });
+      } catch (e) {
+        alert('重置失败：' + e.message);
+      }
+    }
+  </script>
+  <script src="/socket.io/socket.io.js"></script>
+</body>
+</html>

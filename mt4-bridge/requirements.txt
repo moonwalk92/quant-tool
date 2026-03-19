@@ -1,0 +1,11 @@
+# MT4 桥接依赖
+
+# ZeroMQ 通信
+pyzmq>=25.0.0
+
+# MetaTrader4 库（可选，用于真实 MT4 连接）
+# 如果不需要真实 MT4 连接，可以注释掉这一行
+MetaTrader4>=0.1.0
+
+# 日志
+colorama>=0.4.6
