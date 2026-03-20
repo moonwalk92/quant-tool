@@ -931,8 +931,8 @@
     // WebSocket 连接
     socket.on('connect', () => {
       console.log('✅ 已连接到服务器，socket.id:', socket.id);
-      // 请求初始状态
-      socket.emit('command', { action: 'status' });
+      // 请求初始价格（页面加载时调用一次 API）
+      socket.emit('requestPrice', { symbol: currentSymbol || 'XAUUSD' });
     });
     
     socket.on('connect_error', (error) => {
@@ -1402,6 +1402,7 @@
       }[symbol];
       
       try {
+        // 更新后端品种
         const res = await fetch('/api/symbol', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -1414,9 +1415,14 @@
         const data = await res.json();
         
         if (data.success) {
+          currentSymbol = symbol;
           document.getElementById('currentSymbol').textContent = symbol;
           // 同步到策略配置
           document.getElementById('cfgSymbol').value = symbol;
+          
+          // 通过 WebSocket 请求新价格（调用 API）
+          socket.emit('requestPrice', { symbol });
+          
           console.log(`✅ 已切换到 ${symbol}`);
         }
       } catch (e) {

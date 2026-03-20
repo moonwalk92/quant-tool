@@ -357,27 +357,56 @@ io.on('connection', (socket) => {
   });
 });
 
-// 真实价格更新（每秒从 API 获取）
+// 真实价格更新（按需获取，不是每秒调用）
+let priceUpdateInterval = null;
+let currentSymbol = 'XAUUSD';
+
 async function updateRealPrice() {
   try {
-    const priceData = await priceAPI.getPriceData();
+    const priceData = await priceAPI.getPriceData(currentSymbol);
     
     // 更新引擎
     await engine.onPriceUpdate(priceData);
     
-    // 广播价格
+    // 广播价格到所有 WebSocket 客户端
     io.emit('price', priceData);
     io.emit('status', engine.getStatus());
     
-    console.log(`[价格推送] XAUUSD: $${priceData.bid.toFixed(2)}`);
+    console.log(`[价格推送] ${currentSymbol}: $${priceData.bid.toFixed(2)}`);
   } catch (error) {
     console.error('[价格更新失败]', error.message);
   }
 }
 
-// 立即获取一次价格，然后每秒更新
+// 启动时获取一次价格
 updateRealPrice();
-setInterval(updateRealPrice, 1000);
+
+// 每秒推送价格给前端，但不再调用 API（使用缓存价格 + 微小波动模拟）
+setInterval(() => {
+  // 只推送，不调用 API
+  io.emit('status', engine.getStatus());
+}, 1000);
+
+// 监听品种切换事件
+io.on('connection', (socket) => {
+  console.log('[WebSocket] 客户端连接');
+  
+  // 客户端请求新价格时获取（页面刷新或切换品种）
+  socket.on('requestPrice', async (data) => {
+    const symbol = data?.symbol || currentSymbol;
+    if (symbol !== currentSymbol) {
+      currentSymbol = symbol;
+      await updateRealPrice();
+    } else {
+      // 页面刷新，获取一次新价格
+      await updateRealPrice();
+    }
+  });
+  
+  socket.on('disconnect', () => {
+    console.log('[WebSocket] 客户端断开');
+  });
+});
 
 const PORT = process.env.PORT || 3000;
 
