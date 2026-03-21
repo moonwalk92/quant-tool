@@ -122,6 +122,23 @@ app.get('/api/stocks/default', async (req, res) => {
   }
 });
 
+// 获取价格历史和波动
+app.get('/api/price/:symbol/history', (req, res) => {
+  const symbol = req.params.symbol.toUpperCase();
+  const volatility = priceAPI.getPriceVolatility(symbol);
+  const historyKey = `${symbol}_history`;
+  const history = priceAPI[historyKey] || [];
+  
+  res.json({
+    success: true,
+    symbol: symbol,
+    currentPrice: priceAPI.lastPrice,
+    volatility: volatility,
+    history: history.slice(-20), // 返回最近 20 条记录
+    count: history.length
+  });
+});
+
 // ============== 原有 API 路由 ==============
 
 // 获取当前状态
@@ -395,7 +412,7 @@ io.on('connection', (socket) => {
   });
 });
 
-// 真实价格更新（按需获取，不是每秒调用）
+// 真实价格更新（每秒获取并推送）
 let priceUpdateInterval = null;
 let currentSymbol = 'XAUUSD';
 
@@ -410,7 +427,10 @@ async function updateRealPrice() {
     io.emit('price', priceData);
     io.emit('status', engine.getStatus());
     
-    console.log(`[价格推送] ${currentSymbol}: $${priceData.bid.toFixed(2)}`);
+    // 显示价格波动信息
+    const trend = priceData.trend === 'up' ? '📈' : '📉';
+    const sign = priceData.change >= 0 ? '+' : '';
+    console.log(`[价格推送] ${currentSymbol}: $${priceData.price.toFixed(2)} ${trend} ${sign}${priceData.change.toFixed(2)} (${sign}${priceData.changePercent.toFixed(2)}%)`);
   } catch (error) {
     console.error('[价格更新失败]', error.message);
   }
@@ -419,10 +439,9 @@ async function updateRealPrice() {
 // 启动时获取一次价格
 updateRealPrice();
 
-// 每秒推送价格给前端，但不再调用 API（使用缓存价格 + 微小波动模拟）
+// 每秒获取并推送真实价格（显示波动）
 setInterval(() => {
-  // 只推送，不调用 API
-  io.emit('status', engine.getStatus());
+  updateRealPrice();
 }, 1000);
 
 // 监听品种切换事件

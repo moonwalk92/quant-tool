@@ -14,23 +14,27 @@ class PriceAPI {
   constructor() {
     this.lastPrice = null;
     this.lastUpdate = 0;
-    this.cacheDuration = 1000;
+    this.cacheDuration = 100; // 改为 100ms 缓存，支持快速刷新
     this.fmpKey = process.env.FMP_API_KEY || '';
     this.twelveDataKey = process.env.TWELVE_DATA_API_KEY || '';
     this.alphaVantageKey = process.env.ALPHA_VANTAGE_API_KEY || '';
     this.marketStackKey = process.env.MARKETSTACK_API_KEY || 'a3e52a1083788b9f3afa054fe53cda7f';
-    this.useInvesting = process.env.USE_INVESTING_COM === 'true'; // 是否启用 Investing 爬虫
+    this.useInvesting = process.env.USE_INVESTING_COM === 'true';
     
     // 股票价格缓存
     this.stockCache = {};
-    this.stockCacheDuration = 60000;
+    this.stockCacheDuration = 1000; // 1 秒缓存
     
     // 贵金属价格缓存
     this.metalCache = {};
-    this.metalCacheDuration = 5000;
+    this.metalCacheDuration = 1000; // 1 秒缓存
     
     // Investing 爬虫实例
     this.investing = new InvestingCrawler();
+    
+    // 价格历史记录（用于显示波动）
+    this.priceHistory = [];
+    this.maxHistoryLength = 60; // 保留最近 60 条记录
   }
 
   /**
@@ -56,6 +60,10 @@ class PriceAPI {
           this.lastPrice = price;
           this.lastSymbol = symbol;
           this.lastUpdate = now;
+          
+          // 记录价格历史
+          this.recordPriceHistory(symbol, price);
+          
           console.log(`[价格 API] ${symbol} 获取成功 (Investing.com): $${price.toFixed(2)}`);
           return price;
         }
@@ -141,6 +149,88 @@ class PriceAPI {
     
     console.warn(`[价格 API] 使用模拟价格 ${symbol}: $${simulatedPrice.toFixed(2)} (API 不可用)`);
     return simulatedPrice;
+  }
+
+  /**
+   * 记录价格历史
+   */
+  recordPriceHistory(symbol, price) {
+    const historyKey = `${symbol}_history`;
+    if (!this[historyKey]) {
+      this[historyKey] = [];
+    }
+    
+    this[historyKey].push({
+      price: price,
+      timestamp: Date.now()
+    });
+    
+    // 保持历史记录长度
+    if (this[historyKey].length > this.maxHistoryLength) {
+      this[historyKey].shift();
+    }
+  }
+
+  /**
+   * 获取价格波动信息
+   */
+  getPriceVolatility(symbol) {
+    const historyKey = `${symbol}_history`;
+    const history = this[historyKey] || [];
+    
+    if (history.length < 2) {
+      return {
+        change: 0,
+        changePercent: 0,
+        high: 0,
+        low: 0,
+        avg: 0
+      };
+    }
+    
+    const currentPrice = history[history.length - 1].price;
+    const oldPrice = history[0].price;
+    
+    const prices = history.map(h => h.price);
+    const high = Math.max(...prices);
+    const low = Math.min(...prices);
+    const avg = prices.reduce((a, b) => a + b, 0) / prices.length;
+    
+    const change = currentPrice - oldPrice;
+    const changePercent = (change / oldPrice) * 100;
+    
+    return {
+      change: change,
+      changePercent: changePercent,
+      high: high,
+      low: low,
+      avg: avg,
+      trend: change >= 0 ? 'up' : 'down'
+    };
+  }
+
+  /**
+   * 获取带波动信息的完整价格数据
+   */
+  async getPriceData(symbol = 'XAUUSD') {
+    const price = await this.getPrice(symbol);
+    const volatility = this.getPriceVolatility(symbol);
+    const spread = this.getSpread(symbol);
+    
+    return {
+      symbol: symbol,
+      bid: price - spread,
+      ask: price + spread,
+      price: price,
+      change: volatility.change,
+      changePercent: volatility.changePercent,
+      high: volatility.high,
+      low: volatility.low,
+      avg: volatility.avg,
+      trend: volatility.trend,
+      timestamp: Date.now(),
+      source: this.lastSymbol === symbol ? 'investing.com' : 'simulated'
+    };
   }
 
   /**
