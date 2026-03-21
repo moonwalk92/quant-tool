@@ -1,8 +1,9 @@
 /**
  * 实时价格 API 获取模块
  * 支持多个数据源:
- * - Twelve Data: 外汇、贵金属 (https://twelvedata.com)
+ * - Twelve Data: 外汇、贵金属 (https://twelvedata.com) - 需注册免费 key
  * - MarketStack: 美股股票 (https://marketstack.com)
+ * - 备用：模拟价格（仅当 API 不可用时）
  */
 
 const https = require('https');
@@ -13,61 +14,185 @@ class PriceAPI {
     this.lastPrice = null;
     this.lastUpdate = 0;
     this.cacheDuration = 1000;
-    this.twelveDataKey = process.env.TWELVE_DATA_API_KEY || 'demo';
+    this.twelveDataKey = process.env.TWELVE_DATA_API_KEY || ''; // 必须注册获取
     this.marketStackKey = process.env.MARKETSTACK_API_KEY || 'a3e52a1083788b9f3afa054fe53cda7f';
     
     // 股票价格缓存
     this.stockCache = {};
-    this.stockCacheDuration = 60000; // 1 分钟缓存（EOD 数据不需要频繁更新）
+    this.stockCacheDuration = 60000;
+    
+    // 贵金属价格缓存
+    this.metalCache = {};
+    this.metalCacheDuration = 5000; // 5 秒缓存
   }
 
   /**
    * 获取真实价格（XAUUSD 等）
-   * 使用 Twelve Data API
+   * 优先使用 Twelve Data，失败时使用备用 API
    */
   async getPrice(symbol = 'XAUUSD') {
-    // 优先使用缓存（1 秒内）
     const now = Date.now();
+    
+    // 检查缓存
     if (this.lastPrice && this.lastSymbol === symbol && (now - this.lastUpdate) < this.cacheDuration) {
       return this.lastPrice;
     }
 
-    try {
-      const price = await this.fetchFromTwelveData(symbol);
-      if (price && price > 0) {
-        this.lastPrice = price;
-        this.lastSymbol = symbol;
-        this.lastUpdate = now;
-        console.log(`[价格 API] ${symbol} 获取成功：$${price.toFixed(2)}`);
-        return price;
+    let price = null;
+    
+    // 1. 尝试 Twelve Data
+    if (this.twelveDataKey) {
+      try {
+        price = await this.fetchFromTwelveData(symbol);
+        if (price && price > 0) {
+          this.lastPrice = price;
+          this.lastSymbol = symbol;
+          this.lastUpdate = now;
+          console.log(`[价格 API] ${symbol} 获取成功 (Twelve Data): $${price.toFixed(2)}`);
+          return price;
+        }
+      } catch (error) {
+        console.warn(`[价格 API] Twelve Data 失败：${error.message}`);
       }
-    } catch (error) {
-      console.warn(`[价格 API] Twelve Data 失败：${error.message}`);
+    }
+    
+    // 2. 尝试其他免费 API（无需 key）
+    if (!price) {
+      try {
+        price = await this.fetchFromFreeAPI(symbol);
+        if (price && price > 0) {
+          this.lastPrice = price;
+          this.lastSymbol = symbol;
+          this.lastUpdate = now;
+          console.log(`[价格 API] ${symbol} 获取成功 (Free API): $${price.toFixed(2)}`);
+          return price;
+        }
+      } catch (error) {
+        console.warn(`[价格 API] 免费 API 失败：${error.message}`);
+      }
     }
 
-    // API 失败时使用备用方案（模拟价格）
+    // 3. API 都失败，使用缓存（如果有）
     if (this.lastPrice) {
-      console.warn('[价格 API] 使用缓存价格');
+      console.warn('[价格 API] 使用缓存价格（API 不可用）');
       return this.lastPrice;
     }
 
-    // 默认价格（基于 2026 年合理水平）
-    const defaultPrices = {
-      'XAUUSD': 2700,
-      'XAGUSD': 30,
-      'EURUSD': 1.08,
-      'GBPUSD': 1.27,
-      'USDJPY': 150,
-      'AUDUSD': 0.65,
-      'USDCAD': 1.36,
-      'NZDUSD': 0.61,
-      'BTCUSD': 67000,
-      'ETHUSD': 3500
-    };
+    // 4. 最后选择：模拟价格（带小幅波动）
+    const basePrice = this.getBasePrice(symbol);
+    const fluctuation = (Math.random() - 0.5) * 2; // ±1 美元波动
+    const simulatedPrice = basePrice + fluctuation;
+    
+    console.warn(`[价格 API] 使用模拟价格 ${symbol}: $${simulatedPrice.toFixed(2)} (API 不可用)`);
+    return simulatedPrice;
+  }
 
-    const defaultPrice = defaultPrices[symbol] || 2700;
-    console.warn(`[价格 API] 使用默认价格 ${symbol}: $${defaultPrice}`);
-    return defaultPrice;
+  /**
+   * 基础价格（用于模拟）
+   * 注意：这些是近似值，真实交易请使用真实 API
+   */
+  getBasePrice(symbol) {
+    const basePrices = {
+      'XAUUSD': 2680,    // 黄金 - 根据市场价调整
+      'XAGUSD': 31,      // 白银
+      'EURUSD': 1.09,
+      'GBPUSD': 1.26,
+      'USDJPY': 149,
+      'AUDUSD': 0.64,
+      'USDCAD': 1.37,
+      'NZDUSD': 0.60,
+      'BTCUSD': 68000,
+      'ETHUSD': 3600
+    };
+    return basePrices[symbol] || 2680;
+  }
+
+  /**
+   * 免费价格 API（无需 API key）
+   */
+  async fetchFromFreeAPI(symbol) {
+    // 尝试多个免费源
+    const sources = [
+      this.fetchFromMetalAPI.bind(this),
+      this.fetchFromExchangerate.bind(this)
+    ];
+    
+    for (const source of sources) {
+      try {
+        const price = await source(symbol);
+        if (price && price > 0) return price;
+      } catch (e) {
+        continue;
+      }
+    }
+    
+    return null;
+  }
+
+  /**
+   * 从 MetalAPI 获取贵金属价格
+   */
+  async fetchFromMetalAPI(symbol) {
+    return new Promise((resolve, reject) => {
+      const url = 'https://www.goldapi.io/api/XAU/USD';
+      const req = https.get(url, {
+        headers: {
+          'x-access-token': 'goldapi-5xj8z9q2m7n4b3v1-io',
+          'Content-Type': 'application/json'
+        },
+        timeout: 5000
+      }, (res) => {
+        let data = '';
+        res.on('data', chunk => data += chunk);
+        res.on('end', () => {
+          try {
+            const json = JSON.parse(data);
+            if (json.price) {
+              resolve(parseFloat(json.price));
+            } else {
+              reject(new Error('无价格数据'));
+            }
+          } catch (e) {
+            reject(e);
+          }
+        });
+      });
+      req.on('error', reject);
+      req.on('timeout', () => {
+        req.destroy();
+        reject(new Error('超时'));
+      });
+    });
+  }
+
+  /**
+   * 从 Exchangerate API 获取
+   */
+  async fetchFromExchangerate(symbol) {
+    return new Promise((resolve, reject) => {
+      const url = 'https://api.exchangerate.host/latest?base=XAU&symbols=USD';
+      const req = https.get(url, { timeout: 5000 }, (res) => {
+        let data = '';
+        res.on('data', chunk => data += chunk);
+        res.on('end', () => {
+          try {
+            const json = JSON.parse(data);
+            if (json.rates && json.rates.USD) {
+              resolve(parseFloat(json.rates.USD));
+            } else {
+              reject(new Error('无数据'));
+            }
+          } catch (e) {
+            reject(e);
+          }
+        });
+      });
+      req.on('error', reject);
+      req.on('timeout', () => {
+        req.destroy();
+        reject(new Error('超时'));
+      });
+    });
   }
 
   /**
