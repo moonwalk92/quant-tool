@@ -84,7 +84,45 @@ const engine = new TradingEngine({
 app.use(express.static(path.join(__dirname, '../public')));
 app.use(express.json());
 
-// API 路由
+// ============== 股票查询 API ==============
+
+// 查询单只股票
+app.get('/api/stock/:symbol', async (req, res) => {
+  try {
+    const symbol = req.params.symbol.toUpperCase();
+    const data = await priceAPI.getStockPrice(symbol);
+    res.json({ success: true, data });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// 查询多只股票
+app.get('/api/stocks', async (req, res) => {
+  try {
+    const symbols = req.query.symbols ? 
+      req.query.symbols.split(',').map(s => s.trim().toUpperCase()) : 
+      ['AAPL', 'GOOG', 'MSFT', 'NVDA', 'TSLA'];
+    
+    const result = await priceAPI.getMultipleStockPrices(symbols);
+    res.json({ success: true, data: result.results, errors: result.errors });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// 默认股票列表
+app.get('/api/stocks/default', async (req, res) => {
+  try {
+    const defaultStocks = ['AAPL', 'GOOG', 'MSFT', 'NVDA', 'TSLA'];
+    const result = await priceAPI.getMultipleStockPrices(defaultStocks);
+    res.json({ success: true, data: result.results, errors: result.errors });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// ============== 原有 API 路由 ==============
 
 // 获取当前状态
 app.get('/api/status', (req, res) => {

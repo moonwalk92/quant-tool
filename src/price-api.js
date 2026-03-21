@@ -1,7 +1,8 @@
 /**
  * 实时价格 API 获取模块
- * 使用 Twelve Data 免费 API 获取真实市场价格
- * 注册：https://twelvedata.com/pricing (每天 800 次免费)
+ * 支持多个数据源:
+ * - Twelve Data: 外汇、贵金属 (https://twelvedata.com)
+ * - MarketStack: 美股股票 (https://marketstack.com)
  */
 
 const https = require('https');
@@ -11,8 +12,13 @@ class PriceAPI {
   constructor() {
     this.lastPrice = null;
     this.lastUpdate = 0;
-    this.cacheDuration = 1000; // 1 秒缓存（防止短时间重复请求）
-    this.apiKey = process.env.TWELVE_DATA_API_KEY || 'demo'; // demo key 有限制
+    this.cacheDuration = 1000;
+    this.twelveDataKey = process.env.TWELVE_DATA_API_KEY || 'demo';
+    this.marketStackKey = process.env.MARKETSTACK_API_KEY || 'a3e52a1083788b9f3afa054fe53cda7f';
+    
+    // 股票价格缓存
+    this.stockCache = {};
+    this.stockCacheDuration = 60000; // 1 分钟缓存（EOD 数据不需要频繁更新）
   }
 
   /**
@@ -125,18 +131,134 @@ class PriceAPI {
    */
   getSpread(symbol) {
     const spreads = {
-      'XAUUSD': 0.15,    // 黄金 15 美分
-      'XAGUSD': 0.01,    // 白银 1 美分
-      'EURUSD': 0.0001,  // 外汇 1 pip
+      'XAUUSD': 0.15,
+      'XAGUSD': 0.01,
+      'EURUSD': 0.0001,
       'GBPUSD': 0.0001,
       'USDJPY': 0.01,
       'AUDUSD': 0.0001,
       'USDCAD': 0.0001,
       'NZDUSD': 0.0001,
-      'BTCUSD': 5,       // 比特币 $5
-      'ETHUSD': 0.5      // 以太坊 $0.5
+      'BTCUSD': 5,
+      'ETHUSD': 0.5
     };
     return spreads[symbol] || 0.15;
+  }
+
+  /**
+   * 获取美股股票价格 (使用 MarketStack API)
+   * @param {string} symbol - 股票代码 (如：AAPL, GOOG, TSLA)
+   * @returns {Promise<object>} 股票数据
+   */
+  async getStockPrice(symbol) {
+    const now = Date.now();
+    const cacheKey = symbol.toUpperCase();
+    
+    // 检查缓存
+    if (this.stockCache[cacheKey] && (now - this.stockCache[cacheKey].timestamp) < this.stockCacheDuration) {
+      console.log(`[股票 API] 使用缓存：${cacheKey}`);
+      return this.stockCache[cacheKey].data;
+    }
+
+    try {
+      const data = await this.fetchFromMarketStack(cacheKey);
+      if (data) {
+        this.stockCache[cacheKey] = {
+          data: data,
+          timestamp: now
+        };
+        console.log(`[股票 API] ${cacheKey} 获取成功：$${data.price.toFixed(2)}`);
+        return data;
+      }
+    } catch (error) {
+      console.warn(`[股票 API] MarketStack 失败：${error.message}`);
+    }
+
+    // 返回缓存的旧数据（如果有）
+    if (this.stockCache[cacheKey]) {
+      console.warn('[股票 API] 使用缓存数据（API 失败）');
+      return this.stockCache[cacheKey].data;
+    }
+
+    throw new Error(`无法获取股票价格：${cacheKey}`);
+  }
+
+  /**
+   * 从 MarketStack 获取股票数据
+   * 文档：https://marketstack.com/documentation
+   */
+  async fetchFromMarketStack(symbol) {
+    return new Promise((resolve, reject) => {
+      const apiKey = this.marketStackKey;
+      const url = `http://api.marketstack.com/v1/eod?access_key=${apiKey}&symbols=${symbol}&limit=1`;
+      
+      const req = http.get(url, { timeout: 10000 }, (res) => {
+        let data = '';
+        res.on('data', chunk => data += chunk);
+        res.on('end', () => {
+          try {
+            const json = JSON.parse(data);
+            
+            if (json.error) {
+              reject(new Error(json.error.message || 'API 错误'));
+              return;
+            }
+            
+            if (json.data && json.data.length > 0) {
+              const quote = json.data[0];
+              const openPrice = quote.open || 0;
+              const closePrice = quote.close || 0;
+              const change = closePrice - openPrice;
+              const changePercent = openPrice ? ((change / openPrice) * 100) : 0;
+              
+              resolve({
+                symbol: quote.symbol,
+                price: closePrice,
+                open: openPrice,
+                high: quote.high || 0,
+                low: quote.low || 0,
+                volume: quote.volume || 0,
+                change: change,
+                changePercent: changePercent,
+                date: quote.date,
+                source: 'marketstack'
+              });
+            } else {
+              reject(new Error('无数据'));
+            }
+          } catch (e) {
+            reject(e);
+          }
+        });
+      });
+      
+      req.on('error', reject);
+      req.on('timeout', () => {
+        req.destroy();
+        reject(new Error('请求超时'));
+      });
+    });
+  }
+
+  /**
+   * 获取多只股票价格
+   * @param {string[]} symbols - 股票代码列表
+   * @returns {Promise<object[]>} 股票数据列表
+   */
+  async getMultipleStockPrices(symbols) {
+    const results = [];
+    const errors = [];
+    
+    for (const symbol of symbols) {
+      try {
+        const data = await this.getStockPrice(symbol);
+        results.push(data);
+      } catch (error) {
+        errors.push({ symbol, error: error.message });
+      }
+    }
+    
+    return { results, errors };
   }
 }
 
