@@ -9,32 +9,102 @@
 const https = require('https');
 const http = require('http');
 const InvestingCrawler = require('./price-investing');
+const MT4PriceProvider = require('./price-mt4');
 
 class PriceAPI {
   constructor() {
     this.lastPrice = null;
     this.lastUpdate = 0;
-    this.cacheDuration = 100; // 改为 100ms 缓存，支持快速刷新
+    this.cacheDuration = 100;
     this.fmpKey = process.env.FMP_API_KEY || '';
     this.twelveDataKey = process.env.TWELVE_DATA_API_KEY || '';
     this.alphaVantageKey = process.env.ALPHA_VANTAGE_API_KEY || '';
     this.marketStackKey = process.env.MARKETSTACK_API_KEY || 'a3e52a1083788b9f3afa054fe53cda7f';
     this.useInvesting = process.env.USE_INVESTING_COM === 'true';
+    this.useMT4 = process.env.USE_MT4_BRIDGE === 'true'; // 是否启用 MT4 Bridge
     
     // 股票价格缓存
     this.stockCache = {};
-    this.stockCacheDuration = 1000; // 1 秒缓存
+    this.stockCacheDuration = 1000;
     
     // 贵金属价格缓存
     this.metalCache = {};
-    this.metalCacheDuration = 1000; // 1 秒缓存
+    this.metalCacheDuration = 1000;
     
     // Investing 爬虫实例
     this.investing = new InvestingCrawler();
     
-    // 价格历史记录（用于显示波动）
+    // MT4 Bridge 实例
+    this.mt4 = new MT4PriceProvider({
+      host: process.env.MT4_HOST || 'localhost',
+      port: process.env.MT4_PORT || 5555,
+      useMT4: this.useMT4
+    });
+    
+    // 价格历史记录
     this.priceHistory = [];
-    this.maxHistoryLength = 60; // 保留最近 60 条记录
+    this.maxHistoryLength = 60;
+    
+    // 初始化 MT4 连接
+    if (this.useMT4) {
+      this.initMT4();
+    }
+  }
+
+  /**
+   * 初始化 MT4 Bridge
+   */
+  async initMT4() {
+    try {
+      await this.mt4.init();
+      console.log('[价格 API] MT4 Bridge 已初始化');
+    } catch (error) {
+      console.warn('[价格 API] MT4 初始化失败，将使用备用数据源');
+    }
+  }
+
+  /**
+   * 检查是否是交易时间（周末休市检测）
+   */
+  isMarketOpen() {
+    const now = new Date();
+    const day = now.getDay(); // 0=周日，6=周六
+    
+    // 周六 (6) 或 周日 (0) = 休市
+    if (day === 0 || day === 6) {
+      return false;
+    }
+    
+    // 工作日 = 开市
+    return true;
+  }
+
+  /**
+   * 获取市场状态
+   */
+  getMarketStatus() {
+    const isOpen = this.isMarketOpen();
+    const now = new Date();
+    
+    if (!isOpen) {
+      // 计算下次开盘时间（周一 00:00 悉尼时间）
+      const nextOpen = new Date(now);
+      nextOpen.setDate(now.getDate() + (8 - now.getDay()) % 7);
+      nextOpen.setHours(0, 0, 0, 0);
+      
+      return {
+        status: 'closed',
+        message: '市场休市中（周末）',
+        nextOpen: nextOpen.toISOString(),
+        nextOpenLocal: nextOpen.toLocaleString('zh-CN')
+      };
+    }
+    
+    return {
+      status: 'open',
+      message: '市场交易中',
+      nextClose: '今日 23:59'
+    };
   }
 
   /**
@@ -51,7 +121,38 @@ class PriceAPI {
 
     let price = null;
     
-    // 1. 尝试 Investing.com 爬虫（免费，无需 API key）- 优先！
+    // 检查市场状态（周末休市检测）
+    const marketStatus = this.getMarketStatus();
+    if (!marketStatus.isOpen) {
+      console.log(`[价格 API] 市场休市中（周末），使用最新缓存价格`);
+      // 周末返回最后已知价格，不更新
+      if (this.lastPrice) {
+        return this.lastPrice;
+      }
+    }
+    
+    // 1. 尝试 MT4 Bridge（最准确，交易商价格）- 优先！
+    if (this.useMT4 && this.mt4.isConnected()) {
+      try {
+        const mt4Data = await this.mt4.getPriceData(symbol);
+        if (mt4Data && mt4Data.price > 0) {
+          price = mt4Data.price;
+          this.lastPrice = price;
+          this.lastSymbol = symbol;
+          this.lastUpdate = now;
+          
+          // 记录价格历史
+          this.recordPriceHistory(symbol, price);
+          
+          console.log(`[价格 API] ${symbol} 获取成功 (MT4 Bridge): $${price.toFixed(2)}`);
+          return price;
+        }
+      } catch (error) {
+        console.warn(`[价格 API] MT4 Bridge 失败：${error.message}`);
+      }
+    }
+    
+    // 2. 尝试 Investing.com 爬虫（免费，无需 API key）
     if (this.useInvesting || !this.fmpKey) {
       try {
         const investingData = await this.investing.getPrice(symbol);

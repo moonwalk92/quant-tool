@@ -134,8 +134,26 @@ app.get('/api/price/:symbol/history', (req, res) => {
     symbol: symbol,
     currentPrice: priceAPI.lastPrice,
     volatility: volatility,
-    history: history.slice(-20), // 返回最近 20 条记录
+    history: history.slice(-20),
     count: history.length
+  });
+});
+
+// 获取市场状态（周末休市检测）
+app.get('/api/market/status', (req, res) => {
+  const status = priceAPI.getMarketStatus();
+  const isOpen = priceAPI.isMarketOpen();
+  
+  res.json({
+    success: true,
+    market: 'FOREX/贵金属',
+    isOpen: isOpen,
+    status: status.status,
+    message: status.message,
+    nextOpen: status.nextOpen,
+    nextOpenLocal: status.nextOpenLocal,
+    nextClose: status.nextClose,
+    timestamp: new Date().toISOString()
   });
 });
 
