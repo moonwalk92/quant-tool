@@ -14,8 +14,9 @@ class PriceAPI {
     this.lastPrice = null;
     this.lastUpdate = 0;
     this.cacheDuration = 1000;
+    this.fmpKey = process.env.FMP_API_KEY || ''; // FMP API (推荐)
     this.twelveDataKey = process.env.TWELVE_DATA_API_KEY || '';
-    this.alphaVantageKey = process.env.ALPHA_VANTAGE_API_KEY || ''; // 新增
+    this.alphaVantageKey = process.env.ALPHA_VANTAGE_API_KEY || '';
     this.marketStackKey = process.env.MARKETSTACK_API_KEY || 'a3e52a1083788b9f3afa054fe53cda7f';
     
     // 股票价格缓存
@@ -41,8 +42,24 @@ class PriceAPI {
 
     let price = null;
     
-    // 1. 尝试 Alpha Vantage（推荐，稳定）
-    if (this.alphaVantageKey) {
+    // 1. 尝试 FMP (Financial Modeling Prep) - 推荐！
+    if (this.fmpKey) {
+      try {
+        price = await this.fetchFromFMP(symbol);
+        if (price && price > 0) {
+          this.lastPrice = price;
+          this.lastSymbol = symbol;
+          this.lastUpdate = now;
+          console.log(`[价格 API] ${symbol} 获取成功 (FMP): $${price.toFixed(2)}`);
+          return price;
+        }
+      } catch (error) {
+        console.warn(`[价格 API] FMP 失败：${error.message}`);
+      }
+    }
+    
+    // 2. 尝试 Alpha Vantage
+    if (this.alphaVantageKey && !price) {
       try {
         price = await this.fetchFromAlphaVantage(symbol);
         if (price && price > 0) {
@@ -57,7 +74,7 @@ class PriceAPI {
       }
     }
     
-    // 2. 尝试 Twelve Data
+    // 3. 尝试 Twelve Data
     if (this.twelveDataKey && !price) {
       try {
         price = await this.fetchFromTwelveData(symbol);
@@ -73,7 +90,7 @@ class PriceAPI {
       }
     }
     
-    // 3. 尝试免费 API（无需 key）
+    // 4. 尝试免费 API（无需 key）
     if (!price) {
       try {
         price = await this.fetchFromFreeAPI(symbol);
@@ -205,6 +222,50 @@ class PriceAPI {
           }
         });
       });
+      req.on('error', reject);
+      req.on('timeout', () => {
+        req.destroy();
+        reject(new Error('超时'));
+      });
+    });
+  }
+
+  /**
+   * 从 FMP (Financial Modeling Prep) 获取价格
+   * 文档：https://financialmodelingprep.com/developer/docs
+   * 支持：外汇、贵金属、股票
+   */
+  async fetchFromFMP(symbol) {
+    return new Promise((resolve, reject) => {
+      // FMP 支持多种格式：XAUUSD, EURUSD, AAPL 等
+      const apiKey = this.fmpKey;
+      const url = `https://financialmodelingprep.com/api/v3/quote/${symbol}?apikey=${apiKey}`;
+      
+      const req = https.get(url, { timeout: 5000 }, (res) => {
+        let data = '';
+        res.on('data', chunk => data += chunk);
+        res.on('end', () => {
+          try {
+            const json = JSON.parse(data);
+            
+            if (Array.isArray(json) && json.length > 0) {
+              const quote = json[0];
+              if (quote.price) {
+                resolve(parseFloat(quote.price));
+              } else {
+                reject(new Error('无价格数据'));
+              }
+            } else if (json['Error Message']) {
+              reject(new Error(json['Error Message']));
+            } else {
+              reject(new Error('无数据'));
+            }
+          } catch (e) {
+            reject(e);
+          }
+        });
+      });
+      
       req.on('error', reject);
       req.on('timeout', () => {
         req.destroy();
