@@ -8,16 +8,18 @@
 
 const https = require('https');
 const http = require('http');
+const InvestingCrawler = require('./price-investing');
 
 class PriceAPI {
   constructor() {
     this.lastPrice = null;
     this.lastUpdate = 0;
     this.cacheDuration = 1000;
-    this.fmpKey = process.env.FMP_API_KEY || ''; // FMP API (推荐)
+    this.fmpKey = process.env.FMP_API_KEY || '';
     this.twelveDataKey = process.env.TWELVE_DATA_API_KEY || '';
     this.alphaVantageKey = process.env.ALPHA_VANTAGE_API_KEY || '';
     this.marketStackKey = process.env.MARKETSTACK_API_KEY || 'a3e52a1083788b9f3afa054fe53cda7f';
+    this.useInvesting = process.env.USE_INVESTING_COM === 'true'; // 是否启用 Investing 爬虫
     
     // 股票价格缓存
     this.stockCache = {};
@@ -26,6 +28,9 @@ class PriceAPI {
     // 贵金属价格缓存
     this.metalCache = {};
     this.metalCacheDuration = 5000;
+    
+    // Investing 爬虫实例
+    this.investing = new InvestingCrawler();
   }
 
   /**
@@ -42,8 +47,25 @@ class PriceAPI {
 
     let price = null;
     
-    // 1. 尝试 FMP (Financial Modeling Prep) - 推荐！
-    if (this.fmpKey) {
+    // 1. 尝试 Investing.com 爬虫（免费，无需 API key）- 优先！
+    if (this.useInvesting || !this.fmpKey) {
+      try {
+        const investingData = await this.investing.getPrice(symbol);
+        if (investingData && investingData.price > 0) {
+          price = investingData.price;
+          this.lastPrice = price;
+          this.lastSymbol = symbol;
+          this.lastUpdate = now;
+          console.log(`[价格 API] ${symbol} 获取成功 (Investing.com): $${price.toFixed(2)}`);
+          return price;
+        }
+      } catch (error) {
+        console.warn(`[价格 API] Investing.com 失败：${error.message}`);
+      }
+    }
+    
+    // 2. 尝试 FMP (付费 API)
+    if (this.fmpKey && !price) {
       try {
         price = await this.fetchFromFMP(symbol);
         if (price && price > 0) {
@@ -58,7 +80,7 @@ class PriceAPI {
       }
     }
     
-    // 2. 尝试 Alpha Vantage
+    // 3. 尝试 Alpha Vantage
     if (this.alphaVantageKey && !price) {
       try {
         price = await this.fetchFromAlphaVantage(symbol);
@@ -74,7 +96,7 @@ class PriceAPI {
       }
     }
     
-    // 3. 尝试 Twelve Data
+    // 4. 尝试 Twelve Data
     if (this.twelveDataKey && !price) {
       try {
         price = await this.fetchFromTwelveData(symbol);
@@ -90,7 +112,7 @@ class PriceAPI {
       }
     }
     
-    // 4. 尝试免费 API（无需 key）
+    // 5. 尝试免费 API（无需 key）
     if (!price) {
       try {
         price = await this.fetchFromFreeAPI(symbol);
