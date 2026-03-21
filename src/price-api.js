@@ -107,11 +107,12 @@ class PriceAPI {
   /**
    * 基础价格（用于模拟）
    * 注意：这些是近似值，真实交易请使用真实 API
+   * 更新时间：2026-03-21（根据市场价手动校准）
    */
   getBasePrice(symbol) {
     const basePrices = {
-      'XAUUSD': 2680,    // 黄金 - 根据市场价调整
-      'XAGUSD': 31,      // 白银
+      'XAUUSD': 4690,    // 黄金 - 2026 年 3 月市场价（约 4660-4720）
+      'XAGUSD': 32,      // 白银
       'EURUSD': 1.09,
       'GBPUSD': 1.26,
       'USDJPY': 149,
@@ -121,7 +122,7 @@ class PriceAPI {
       'BTCUSD': 68000,
       'ETHUSD': 3600
     };
-    return basePrices[symbol] || 2680;
+    return basePrices[symbol] || 4690;
   }
 
   /**
