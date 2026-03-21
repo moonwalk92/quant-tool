@@ -14,7 +14,8 @@ class PriceAPI {
     this.lastPrice = null;
     this.lastUpdate = 0;
     this.cacheDuration = 1000;
-    this.twelveDataKey = process.env.TWELVE_DATA_API_KEY || ''; // 必须注册获取
+    this.twelveDataKey = process.env.TWELVE_DATA_API_KEY || '';
+    this.alphaVantageKey = process.env.ALPHA_VANTAGE_API_KEY || ''; // 新增
     this.marketStackKey = process.env.MARKETSTACK_API_KEY || 'a3e52a1083788b9f3afa054fe53cda7f';
     
     // 股票价格缓存
@@ -23,7 +24,7 @@ class PriceAPI {
     
     // 贵金属价格缓存
     this.metalCache = {};
-    this.metalCacheDuration = 5000; // 5 秒缓存
+    this.metalCacheDuration = 5000;
   }
 
   /**
@@ -40,8 +41,24 @@ class PriceAPI {
 
     let price = null;
     
-    // 1. 尝试 Twelve Data
-    if (this.twelveDataKey) {
+    // 1. 尝试 Alpha Vantage（推荐，稳定）
+    if (this.alphaVantageKey) {
+      try {
+        price = await this.fetchFromAlphaVantage(symbol);
+        if (price && price > 0) {
+          this.lastPrice = price;
+          this.lastSymbol = symbol;
+          this.lastUpdate = now;
+          console.log(`[价格 API] ${symbol} 获取成功 (Alpha Vantage): $${price.toFixed(2)}`);
+          return price;
+        }
+      } catch (error) {
+        console.warn(`[价格 API] Alpha Vantage 失败：${error.message}`);
+      }
+    }
+    
+    // 2. 尝试 Twelve Data
+    if (this.twelveDataKey && !price) {
       try {
         price = await this.fetchFromTwelveData(symbol);
         if (price && price > 0) {
@@ -56,7 +73,7 @@ class PriceAPI {
       }
     }
     
-    // 2. 尝试其他免费 API（无需 key）
+    // 3. 尝试免费 API（无需 key）
     if (!price) {
       try {
         price = await this.fetchFromFreeAPI(symbol);
@@ -196,12 +213,56 @@ class PriceAPI {
   }
 
   /**
+   * 从 Alpha Vantage 获取外汇/贵金属价格
+   * 文档：https://www.alphavantage.co/documentation/#currency-exchange
+   */
+  async fetchFromAlphaVantage(symbol) {
+    return new Promise((resolve, reject) => {
+      // 解析符号（如 XAUUSD -> from=XAU, to=USD）
+      const from = symbol.substring(0, 3);
+      const to = symbol.substring(3);
+      
+      const apiKey = this.alphaVantageKey;
+      const url = `https://www.alphavantage.co/query?function=CURRENCY_EXCHANGE_RATE&from_currency=${from}&to_currency=${to}&apikey=${apiKey}`;
+      
+      const req = https.get(url, { timeout: 5000 }, (res) => {
+        let data = '';
+        res.on('data', chunk => data += chunk);
+        res.on('end', () => {
+          try {
+            const json = JSON.parse(data);
+            
+            if (json['Realtime Currency Exchange Rate']) {
+              const rate = json['Realtime Currency Exchange Rate']['5. Exchange Rate'];
+              resolve(parseFloat(rate));
+            } else if (json['Note']) {
+              reject(new Error('API 限额'));
+            } else if (json['Error Message']) {
+              reject(new Error('API 错误'));
+            } else {
+              reject(new Error('无数据'));
+            }
+          } catch (e) {
+            reject(e);
+          }
+        });
+      });
+      
+      req.on('error', reject);
+      req.on('timeout', () => {
+        req.destroy();
+        reject(new Error('超时'));
+      });
+    });
+  }
+
+  /**
    * 从 Twelve Data 获取实时价格
    * 文档：https://twelvedata.com/docs
    */
   async fetchFromTwelveData(symbol) {
     return new Promise((resolve, reject) => {
-      const apiKey = this.apiKey;
+      const apiKey = this.twelveDataKey;
       const url = `https://api.twelvedata.com/price?symbol=${symbol}&apikey=${apiKey}`;
       
       const req = https.get(url, { timeout: 5000 }, (res) => {
