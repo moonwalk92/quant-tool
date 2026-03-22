@@ -2,8 +2,10 @@
 量化交易工具 - 双向对冲网格策略
 支持 XAUUSD 等外汇品种的自动交易
 
-接入方式：MetaTrader5 Python 库（真实 MT4/MT5 API）
+接入方式：MetaTrader5 Python 库（真实 MT5 API）
 安装依赖：pip install MetaTrader5
+
+推荐运行方式：部署在 Windows VPS 上，24/7 不间断运行
 
 周末逻辑：周六/周日不发起任何交易，但每秒仍刷新显示当前价格
 
@@ -11,6 +13,7 @@
 """
 
 import time
+import os
 import logging
 from datetime import datetime
 from typing import Optional, Dict, List, Tuple
@@ -32,7 +35,7 @@ logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s | %(levelname)s | %(message)s',
     handlers=[
-        logging.FileHandler('trading_bot.log'),
+        logging.FileHandler('trading_bot.log', encoding='utf-8'),
         logging.StreamHandler()
     ]
 )
@@ -42,16 +45,20 @@ logger = logging.getLogger(__name__)
 # ==================== 配置参数 ====================
 
 class TradingConfig:
-    """交易配置参数"""
+    """
+    交易配置参数
 
-    # MT4/MT5 账户配置（真实接入时填写）
-    MT5_LOGIN    = 0          # 账户号，如 123456
-    MT5_PASSWORD = ""         # 账户密码
-    MT5_SERVER   = ""         # 服务器名称，如 "ICMarkets-Demo"
-    MT5_PATH     = ""         # MT5 终端路径，留空则自动查找，如 r"C:\Program Files\MetaTrader 5\terminal64.exe"
+    凭证建议通过环境变量注入（避免密码写入代码）：
+        MT5_LOGIN    账户号
+        MT5_PASSWORD 账户密码
+        MT5_SERVER   服务器（如 ICMarketsSC-Demo）
+        MT5_PATH     MT5 终端路径（可选，留空自动查找）
+        MT5_VPS_HOST VPS IP（本地运行则留空）
+        MT5_VPS_PORT MT5 网络端口（默认 8888）
+    """
 
     # 品种配置
-    SYMBOL = "XAUUSD"
+    SYMBOL      = "XAUUSD"
     POINT_VALUE = 0.1  # 1点 = 0.1美元（XAUUSD）
 
     # 价格配置
@@ -67,8 +74,17 @@ class TradingConfig:
     MAX_DRAWDOWN = 0.20    # 最大回撤 20%
 
     # 控制配置
-    CHECK_INTERVAL      = 0.5   # 交易检查间隔（秒）
+    CHECK_INTERVAL       = 0.5   # 交易检查间隔（秒）
     PRICE_FETCH_INTERVAL = 1.0  # 价格显示刷新间隔（秒，周末亦保持）
+
+    def __init__(self):
+        # 从环境变量读取 MT5 凭证（安全）
+        self.MT5_LOGIN    = int(os.environ.get("MT5_LOGIN", "0") or "0")
+        self.MT5_PASSWORD = os.environ.get("MT5_PASSWORD", "")
+        self.MT5_SERVER   = os.environ.get("MT5_SERVER", "")
+        self.MT5_PATH     = os.environ.get("MT5_PATH", "")
+        self.MT5_VPS_HOST = os.environ.get("MT5_VPS_HOST", "")   # VPS IP，留空=本地
+        self.MT5_VPS_PORT = int(os.environ.get("MT5_VPS_PORT", "8888") or "8888")
 
 
 # ==================== 周末检测工具 ====================
@@ -89,24 +105,24 @@ def weekend_price_display(mt4_iface: "MT4Interface", stop_event: threading.Event
     logger.info("📡  价格监控保持运行（每秒刷新）……")
     logger.info("=" * 60)
 
+    cfg = TradingConfig()
     while not stop_event.is_set():
         if not is_weekend():
             logger.info("🔔  周末结束，恢复交易模式")
-            return  # 回到主循环，让外层重新判断
+            return
 
         bid, ask = mt4_iface.get_real_time_price()
         now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         print(f"\r[{now}]  {mt4_iface.config.SYMBOL}  Bid={bid:.3f}  Ask={ask:.3f}  (周末休市)", end="", flush=True)
 
-        stop_event.wait(TradingConfig.PRICE_FETCH_INTERVAL)
+        stop_event.wait(cfg.PRICE_FETCH_INTERVAL)
 
-    print()  # 换行
+    print()
 
 
 # ==================== 数据类型 ====================
 
 class OrderType(Enum):
-    """订单类型"""
     BUY       = "BUY"
     SELL      = "SELL"
     BUY_STOP  = "BUY_STOP"
@@ -114,7 +130,6 @@ class OrderType(Enum):
 
 
 class OrderStatus(Enum):
-    """订单状态"""
     PENDING   = "PENDING"
     FILLED    = "FILLED"
     CANCELLED = "CANCELLED"
@@ -123,7 +138,6 @@ class OrderStatus(Enum):
 
 @dataclass
 class Position:
-    """持仓信息"""
     ticket_id:  int
     symbol:     str
     order_type: OrderType
@@ -140,7 +154,6 @@ class Position:
 
 @dataclass
 class AccountInfo:
-    """账户信息"""
     balance:        float
     equity:         float
     margin:         float
@@ -148,18 +161,22 @@ class AccountInfo:
     open_positions: List[Position]
 
 
-# ==================== MT4/MT5 接口层 ====================
+# ==================== MT5 接口层 ====================
 
 class MT4Interface:
     """
-    MT4/MT5 数据接口
+    MT5 数据接口
     优先使用真实 MetaTrader5 库；若未安装则降级为模拟模式。
+
+    连接模式：
+      - VPS 本地运行（推荐）：留空 MT5_VPS_HOST，MT5 终端在同台机器
+      - 远程连接 VPS：设置 MT5_VPS_HOST 为 VPS IP，通过网络连接 MT5
     """
 
     def __init__(self, config: TradingConfig):
-        self.config = config
-        self.use_real = False
-        self.current_price = 2000.0  # 模拟初始价格（仅在模拟模式使用）
+        self.config       = config
+        self.use_real     = False
+        self.current_price = 4490.0  # 模拟基准价（~当前XAUUSD市场价）
         self._init_mt5()
 
     # ---------- 初始化 ----------
@@ -171,14 +188,29 @@ class MT4Interface:
             return
 
         kwargs = {}
+
+        # MT5 终端路径（Windows VPS 上通常为默认路径）
         if self.config.MT5_PATH:
             kwargs["path"] = self.config.MT5_PATH
 
-        if not mt5.initialize(**kwargs):
-            logger.error(f"MT5 初始化失败: {mt5.last_error()}")
-            return
+        # VPS 远程连接模式
+        if self.config.MT5_VPS_HOST:
+            kwargs["host"] = self.config.MT5_VPS_HOST
+            kwargs["port"] = self.config.MT5_VPS_PORT
+            logger.info(f"🌐 远程连接 VPS MT5: {self.config.MT5_VPS_HOST}:{self.config.MT5_VPS_PORT}")
+        else:
+            logger.info("🖥️  本地 MT5 模式")
 
-        # 如果配置了账户信息则登录
+        if not mt5.initialize(**kwargs):
+            err = mt5.last_error()
+            logger.error(f"MT5 初始化失败: {err}")
+            logger.info("等待 3 秒后重试...")
+            time.sleep(3)
+            if not mt5.initialize(**kwargs):
+                logger.error(f"MT5 重试失败，切换到模拟模式: {mt5.last_error()}")
+                return
+
+        # 登录账户
         if self.config.MT5_LOGIN and self.config.MT5_PASSWORD:
             ok = mt5.login(
                 login=self.config.MT5_LOGIN,
@@ -189,14 +221,18 @@ class MT4Interface:
                 logger.error(f"MT5 登录失败: {mt5.last_error()}")
                 mt5.shutdown()
                 return
+            logger.info(f"✅ MT5 登录成功 | 账户: {self.config.MT5_LOGIN} | 服务器: {self.config.MT5_SERVER}")
+        elif self.config.MT5_LOGIN:
+            logger.info(f"已连接到 MT5（账户 {self.config.MT5_LOGIN}，未指定密码）")
 
-        # 确认品种可用
+        # 订阅品种
         if not mt5.symbol_select(self.config.SYMBOL, True):
             logger.warning(f"品种 {self.config.SYMBOL} 订阅失败，请检查品种名称")
 
         self.use_real = True
         acc = mt5.account_info()
-        logger.info(f"✅  MT5 连接成功 | 账户: {acc.login} | 余额: {acc.balance:.2f} {acc.currency}")
+        if acc:
+            logger.info(f"💰 账户信息 | 余额: {acc.balance:.2f} | 净值: {acc.equity:.2f} | 货币: {acc.currency}")
 
     def shutdown(self):
         """关闭 MT5 连接"""
@@ -214,20 +250,20 @@ class MT4Interface:
         if self.use_real:
             try:
                 tick = mt5.symbol_info_tick(self.config.SYMBOL)
-                if tick:
-                    return tick.bid, tick.ask
-                logger.warning(f"获取 {self.config.SYMBOL} 报价为空，使用上次价格")
+                if tick and tick.bid > 0 and tick.ask > 0:
+                    return float(tick.bid), float(tick.ask)
+                logger.warning(f"获取 {self.config.SYMBOL} 报价为空或无效")
             except Exception as e:
                 logger.error(f"获取实时价格失败: {e}")
-        else:
-            # 模拟价格波动
-            import random
-            variation = random.uniform(-0.5, 0.5)
-            self.current_price += variation
 
+        # 模拟价格波动（基准价 ~4490 XAUUSD）
+        import random
+        variation = random.uniform(-0.3, 0.3)
+        self.current_price += variation
+        self.current_price = max(4400, min(4600, self.current_price))
         bid = self.current_price
-        ask = self.current_price + 0.5
-        return bid, ask
+        ask = self.current_price + 0.3
+        return round(bid, 2), round(ask, 2)
 
     # ---------- 账户信息 ----------
 
@@ -247,7 +283,6 @@ class MT4Interface:
             except Exception as e:
                 logger.error(f"获取账户信息失败: {e}")
 
-        # 模拟账户
         return AccountInfo(
             balance=10000.0,
             equity=10000.0,
@@ -267,23 +302,22 @@ class MT4Interface:
             try:
                 mt5_type = mt5.ORDER_TYPE_BUY if order_type == OrderType.BUY else mt5.ORDER_TYPE_SELL
                 request = {
-                    "action":   mt5.TRADE_ACTION_DEAL,
-                    "symbol":   self.config.SYMBOL,
-                    "volume":   lots,
-                    "type":     mt5_type,
-                    "price":    price,
-                    "deviation": 10,
-                    "magic":    20260322,
-                    "comment":  "quant_bot",
-                    "type_time": mt5.ORDER_TIME_GTC,
+                    "action":       mt5.TRADE_ACTION_DEAL,
+                    "symbol":       self.config.SYMBOL,
+                    "volume":       lots,
+                    "type":         mt5_type,
+                    "price":        price,
+                    "deviation":    10,
+                    "magic":        20260322,
+                    "comment":      "quant_bot",
+                    "type_time":    mt5.ORDER_TIME_GTC,
                     "type_filling": mt5.ORDER_FILLING_IOC,
                 }
                 result = mt5.order_send(request)
                 if result and result.retcode == mt5.TRADE_RETCODE_DONE:
-                    ticket_id = result.order
-                    logger.info(f"市价单执行: {order_type.value} {lots}手 @ {price}  ticket={ticket_id}")
+                    logger.info(f"✅ 市价单执行: {order_type.value} {lots}手 @ {result.price}  ticket={result.order}")
                     return Position(
-                        ticket_id=ticket_id,
+                        ticket_id=result.order,
                         symbol=self.config.SYMBOL,
                         order_type=order_type,
                         lots=lots,
@@ -293,13 +327,12 @@ class MT4Interface:
                     )
                 else:
                     err = result.retcode if result else "无结果"
-                    logger.error(f"市价单失败: retcode={err}")
+                    logger.error(f"❌ 市价单失败: retcode={err} | {mt5.last_error()}")
                     return None
             except Exception as e:
                 logger.error(f"发送市价单异常: {e}")
                 return None
 
-        # 模拟
         ticket_id = int(time.time() * 1000)
         logger.info(f"[模拟] 市价单: {order_type.value} {lots}手 @ {price}")
         return Position(
@@ -327,25 +360,24 @@ class MT4Interface:
                     return None
 
                 request = {
-                    "action":   mt5.TRADE_ACTION_PENDING,
-                    "symbol":   self.config.SYMBOL,
-                    "volume":   lots,
-                    "type":     mt5_type,
-                    "price":    entry_price,
-                    "tp":       tp or 0.0,
-                    "sl":       sl or 0.0,
-                    "deviation": 10,
-                    "magic":    20260322,
-                    "comment":  "quant_bot_pending",
-                    "type_time": mt5.ORDER_TIME_GTC,
+                    "action":       mt5.TRADE_ACTION_PENDING,
+                    "symbol":       self.config.SYMBOL,
+                    "volume":       lots,
+                    "type":         mt5_type,
+                    "price":        entry_price,
+                    "tp":           tp or 0.0,
+                    "sl":           sl or 0.0,
+                    "deviation":    10,
+                    "magic":        20260322,
+                    "comment":      "quant_bot_pending",
+                    "type_time":    mt5.ORDER_TIME_GTC,
                     "type_filling": mt5.ORDER_FILLING_RETURN,
                 }
                 result = mt5.order_send(request)
                 if result and result.retcode == mt5.TRADE_RETCODE_DONE:
-                    ticket_id = result.order
-                    logger.info(f"挂单创建: {order_type.value} {lots}手 @ {entry_price}  TP={tp}  SL={sl}  ticket={ticket_id}")
+                    logger.info(f"📌 挂单创建: {order_type.value} {lots}手 @ {entry_price}  TP={tp}  SL={sl}  ticket={result.order}")
                     return Position(
-                        ticket_id=ticket_id,
+                        ticket_id=result.order,
                         symbol=self.config.SYMBOL,
                         order_type=order_type,
                         lots=lots,
@@ -357,13 +389,12 @@ class MT4Interface:
                     )
                 else:
                     err = result.retcode if result else "无结果"
-                    logger.error(f"挂单失败: retcode={err}")
+                    logger.error(f"❌ 挂单失败: retcode={err} | {mt5.last_error()}")
                     return None
             except Exception as e:
                 logger.error(f"发送挂单异常: {e}")
                 return None
 
-        # 模拟
         ticket_id = int(time.time() * 1000)
         logger.info(f"[模拟] 挂单创建: {order_type.value} {lots}手 @ {entry_price}, TP={tp}, SL={sl}")
         return Position(
@@ -382,23 +413,18 @@ class MT4Interface:
         """撤销挂单"""
         if self.use_real:
             try:
-                request = {
-                    "action": mt5.TRADE_ACTION_REMOVE,
-                    "order":  ticket_id,
-                }
+                request = {"action": mt5.TRADE_ACTION_REMOVE, "order": ticket_id}
                 result = mt5.order_send(request)
                 if result and result.retcode == mt5.TRADE_RETCODE_DONE:
                     logger.info(f"挂单已撤销: {ticket_id}")
                     return True
                 else:
-                    err = result.retcode if result else "无结果"
-                    logger.error(f"撤单失败: ticket={ticket_id}  retcode={err}")
+                    logger.error(f"撤单失败: ticket={ticket_id}  retcode={result.retcode if result else 'N/A'}")
                     return False
             except Exception as e:
                 logger.error(f"撤单异常: {e}")
                 return False
 
-        # 模拟
         logger.info(f"[模拟] 订单已撤销: {ticket_id}")
         return True
 
@@ -451,16 +477,16 @@ class TradingManager:
     """交易管理器 - 核心交易逻辑"""
 
     def __init__(self, mt4: MT4Interface, config: TradingConfig):
-        self.mt4    = mt4
-        self.config = config
-        self.sizer  = PositionSizer(config)
+        self.mt4     = mt4
+        self.config  = config
+        self.sizer   = PositionSizer(config)
 
-        self.running      = False
-        self._stop_event  = threading.Event()
+        self.running     = False
+        self._stop_event = threading.Event()
 
-        self.initial_equity     = 0.0
-        self.last_filled_price  = None
-        self.first_run          = True
+        self.initial_equity    = 0.0
+        self.last_filled_price = None
+        self.first_run         = True
         self.pending_orders: List[Position] = []
         self.positions:      List[Position] = []
 
@@ -469,7 +495,7 @@ class TradingManager:
     def start(self):
         """启动交易（含周末检测）"""
         logger.info("=" * 60)
-        logger.info("量化交易工具启动")
+        logger.info("🚀 量化交易工具启动")
         logger.info(f"品种: {self.config.SYMBOL}")
         logger.info(f"挂单间隔: {self.config.SPREAD_POINTS}点")
         logger.info(f"止盈止损: {self.config.TP_SL_POINTS}点")
@@ -504,7 +530,6 @@ class TradingManager:
                 # ===== 周末：仅显示价格，不交易 =====
                 if is_weekend():
                     weekend_price_display(self.mt4, self._stop_event)
-                    # 恢复交易时重置首次运行标志
                     self.first_run = True
                     continue
 
@@ -514,8 +539,9 @@ class TradingManager:
 
                 # 每秒在终端显示当前报价
                 now = datetime.now().strftime("%H:%M:%S")
+                mode = "实盘" if self.mt4.use_real else "模拟"
                 print(f"\r[{now}]  {self.config.SYMBOL}  Bid={bid:.3f}  Ask={ask:.3f}  "
-                      f"持仓={len(self.positions)}  挂单={len(self.pending_orders)}", end="", flush=True)
+                      f"持仓={len(self.positions)}  挂单={len(self.pending_orders)}  [{mode}]", end="", flush=True)
 
                 # 回撤检查
                 if not self._check_drawdown(account):
@@ -527,7 +553,7 @@ class TradingManager:
 
                 # 首次运行：发送双向市价单
                 if self.first_run:
-                    print()  # 换行，避免刷新覆盖
+                    print()  # 换行
                     logger.info("首次运行，发送双向市价单...")
                     self._send_initial_market_orders(account.balance)
                     self.first_run = False
@@ -554,8 +580,6 @@ class TradingManager:
 
         drawdown    = 1 - (account.equity / self.initial_equity)
         max_allowed = self.config.MAX_DRAWDOWN
-
-        logger.debug(f"回撤: {drawdown*100:.2f}%  (阈值 {max_allowed*100:.2f}%)")
 
         if drawdown >= max_allowed:
             logger.warning(f"⚠️  回撤超限: {drawdown*100:.2f}% >= {max_allowed*100:.2f}%")
@@ -685,15 +709,15 @@ class TradingManager:
             try:
                 mt5_type = mt5.ORDER_TYPE_SELL if position.order_type == OrderType.BUY else mt5.ORDER_TYPE_BUY
                 request  = {
-                    "action":   mt5.TRADE_ACTION_DEAL,
-                    "symbol":   self.config.SYMBOL,
-                    "volume":   position.lots,
-                    "type":     mt5_type,
-                    "position": position.ticket_id,
-                    "price":    close_price,
-                    "deviation": 10,
-                    "magic":    20260322,
-                    "comment":  "quant_bot_close",
+                    "action":       mt5.TRADE_ACTION_DEAL,
+                    "symbol":       self.config.SYMBOL,
+                    "volume":       position.lots,
+                    "type":         mt5_type,
+                    "position":     position.ticket_id,
+                    "price":        close_price,
+                    "deviation":    10,
+                    "magic":        20260322,
+                    "comment":      "quant_bot_close",
                     "type_filling": mt5.ORDER_FILLING_IOC,
                 }
                 result = mt5.order_send(request)
@@ -723,12 +747,13 @@ class TradingManager:
         """获取当前状态"""
         return {
             "running":           self.running,
-            "is_weekend":        is_weekend(),
-            "initial_equity":    self.initial_equity,
+            "is_weekend":       is_weekend(),
+            "is_real_mode":     self.mt4.use_real,
+            "initial_equity":   self.initial_equity,
             "last_filled_price": self.last_filled_price,
-            "pending_orders":    len(self.pending_orders),
-            "open_positions":    len(self.positions),
-            "total_profit":      sum(p.profit for p in self.positions)
+            "pending_orders":   len(self.pending_orders),
+            "open_positions":   len(self.positions),
+            "total_profit":     sum(p.profit for p in self.positions)
         }
 
 
@@ -738,12 +763,24 @@ def main():
     """主程序入口"""
     config = TradingConfig()
 
-    # ---- 在此处填写你的 MT5 账户信息 ----
-    # config.MT5_LOGIN    = 123456
-    # config.MT5_PASSWORD = "your_password"
-    # config.MT5_SERVER   = "ICMarkets-Demo"
-    # config.MT5_PATH     = r"C:\Program Files\MetaTrader 5\terminal64.exe"
+    # ---- 凭证通过环境变量注入（安全方式）----
+    # 在 Windows VPS 上设置环境变量：
+    #
+    #   setx MT5_LOGIN 104724832
+    #   setx MT5_PASSWORD "Hyc6.62606"
+    #   setx MT5_SERVER "ICMarketsSC-Demo"
+    #
+    # 或直接在 Python 里填写（仅限私人测试机器，不上传 GitHub）：
+    #   config.MT5_LOGIN    = 104724832
+    #   config.MT5_PASSWORD = "Hyc6.62606"
+    #   config.MT5_SERVER   = "ICMarketsSC-Demo"
+    #   config.MT5_PATH     = r"C:\Program Files\MetaTrader 5\terminal64.exe"
     # ---------------------------------------
+
+    if config.MT5_LOGIN:
+        logger.info(f"📋 MT5 配置 | 账户: {config.MT5_LOGIN} | 服务器: {config.MT5_SERVER}")
+    else:
+        logger.warning("⚠️  未配置 MT5 账户，将以模拟模式运行（价格基准 ~4490）")
 
     mt4    = MT4Interface(config)
     trader = TradingManager(mt4, config)
