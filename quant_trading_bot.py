@@ -9,6 +9,9 @@
 
 周末逻辑：周六/周日不发起任何交易，但每秒仍刷新显示当前价格
 
+接入方式：MetaTrader5 Python 库（真实 MT5 API）
+⚠️ 注意：本版本不包含模拟模式，必须连接真实 MT5 才能运行！
+
 警告：本工具仅供学习参考，实盘交易存在本金损失风险，请充分测试后再使用！
 """
 
@@ -176,7 +179,6 @@ class MT4Interface:
     def __init__(self, config: TradingConfig):
         self.config       = config
         self.use_real     = False
-        self.current_price = 4490.0  # 模拟基准价（~当前XAUUSD市场价）
         self._init_mt5()
 
     # ---------- 初始化 ----------
@@ -244,209 +246,180 @@ class MT4Interface:
 
     def get_real_time_price(self) -> Tuple[float, float]:
         """
-        获取实时报价
+        获取实时报价（仅从 MT5 读取，失败则报错）
         返回: (bid, ask)
         """
-        if self.use_real:
-            try:
-                tick = mt5.symbol_info_tick(self.config.SYMBOL)
-                if tick and tick.bid > 0 and tick.ask > 0:
-                    return float(tick.bid), float(tick.ask)
-                logger.warning(f"获取 {self.config.SYMBOL} 报价为空或无效")
-            except Exception as e:
-                logger.error(f"获取实时价格失败: {e}")
+        if not self.use_real:
+            raise RuntimeError("❌ MT5 未连接，无法获取实时价格。请确保 MT5 终端已打开并登录。")
 
-        # 模拟价格波动（基准价 ~4490 XAUUSD）
-        import random
-        variation = random.uniform(-0.3, 0.3)
-        self.current_price += variation
-        self.current_price = max(4400, min(4600, self.current_price))
-        bid = self.current_price
-        ask = self.current_price + 0.3
-        return round(bid, 2), round(ask, 2)
+        try:
+            tick = mt5.symbol_info_tick(self.config.SYMBOL)
+            if tick and tick.bid > 0 and tick.ask > 0:
+                return float(tick.bid), float(tick.ask)
+            raise RuntimeError(f"获取 {self.config.SYMBOL} 报价为空或无效")
+        except RuntimeError:
+            raise
+        except Exception as e:
+            raise RuntimeError(f"获取实时价格异常: {e}")
 
     # ---------- 账户信息 ----------
 
     def get_account_info(self) -> AccountInfo:
-        """获取账户信息"""
-        if self.use_real:
-            try:
-                acc = mt5.account_info()
-                if acc:
-                    return AccountInfo(
-                        balance=acc.balance,
-                        equity=acc.equity,
-                        margin=acc.margin,
-                        free_margin=acc.margin_free,
-                        open_positions=[]
-                    )
-            except Exception as e:
-                logger.error(f"获取账户信息失败: {e}")
+        """获取账户信息（仅从 MT5 读取）"""
+        if not self.use_real:
+            raise RuntimeError("❌ MT5 未连接，无法获取账户信息。请确保 MT5 终端已打开并登录。")
 
-        return AccountInfo(
-            balance=10000.0,
-            equity=10000.0,
-            margin=0.0,
-            free_margin=10000.0,
-            open_positions=[]
-        )
+        try:
+            acc = mt5.account_info()
+            if acc:
+                return AccountInfo(
+                    balance=acc.balance,
+                    equity=acc.equity,
+                    margin=acc.margin,
+                    free_margin=acc.margin_free,
+                    open_positions=[]
+                )
+            raise RuntimeError("获取账户信息返回空")
+        except RuntimeError:
+            raise
+        except Exception as e:
+            raise RuntimeError(f"获取账户信息失败: {e}")
 
     # ---------- 下单 ----------
 
     def send_market_order(self, order_type: OrderType, lots: float) -> Optional[Position]:
-        """发送市价单"""
+        """发送市价单（仅从 MT5 执行）"""
+        if not self.use_real:
+            raise RuntimeError("❌ MT5 未连接，无法发送市价单。")
+
         bid, ask = self.get_real_time_price()
         price = ask if order_type == OrderType.BUY else bid
 
-        if self.use_real:
-            try:
-                mt5_type = mt5.ORDER_TYPE_BUY if order_type == OrderType.BUY else mt5.ORDER_TYPE_SELL
-                request = {
-                    "action":       mt5.TRADE_ACTION_DEAL,
-                    "symbol":       self.config.SYMBOL,
-                    "volume":       lots,
-                    "type":         mt5_type,
-                    "price":        price,
-                    "deviation":    10,
-                    "magic":        20260322,
-                    "comment":      "quant_bot",
-                    "type_time":    mt5.ORDER_TIME_GTC,
-                    "type_filling": mt5.ORDER_FILLING_IOC,
-                }
-                result = mt5.order_send(request)
-                if result and result.retcode == mt5.TRADE_RETCODE_DONE:
-                    logger.info(f"✅ 市价单执行: {order_type.value} {lots}手 @ {result.price}  ticket={result.order}")
-                    return Position(
-                        ticket_id=result.order,
-                        symbol=self.config.SYMBOL,
-                        order_type=order_type,
-                        lots=lots,
-                        open_price=result.price,
-                        status=OrderStatus.FILLED,
-                        open_time=datetime.now()
-                    )
-                else:
-                    err = result.retcode if result else "无结果"
-                    logger.error(f"❌ 市价单失败: retcode={err} | {mt5.last_error()}")
-                    return None
-            except Exception as e:
-                logger.error(f"发送市价单异常: {e}")
+        try:
+            mt5_type = mt5.ORDER_TYPE_BUY if order_type == OrderType.BUY else mt5.ORDER_TYPE_SELL
+            request = {
+                "action":       mt5.TRADE_ACTION_DEAL,
+                "symbol":       self.config.SYMBOL,
+                "volume":       lots,
+                "type":         mt5_type,
+                "price":        price,
+                "deviation":    10,
+                "magic":        20260322,
+                "comment":      "quant_bot",
+                "type_time":    mt5.ORDER_TIME_GTC,
+                "type_filling": mt5.ORDER_FILLING_IOC,
+            }
+            result = mt5.order_send(request)
+            if result and result.retcode == mt5.TRADE_RETCODE_DONE:
+                logger.info(f"✅ 市价单执行: {order_type.value} {lots}手 @ {result.price}  ticket={result.order}")
+                return Position(
+                    ticket_id=result.order,
+                    symbol=self.config.SYMBOL,
+                    order_type=order_type,
+                    lots=lots,
+                    open_price=result.price,
+                    status=OrderStatus.FILLED,
+                    open_time=datetime.now()
+                )
+            else:
+                err = result.retcode if result else "无结果"
+                logger.error(f"❌ 市价单失败: retcode={err} | {mt5.last_error()}")
                 return None
-
-        ticket_id = int(time.time() * 1000)
-        logger.info(f"[模拟] 市价单: {order_type.value} {lots}手 @ {price}")
-        return Position(
-            ticket_id=ticket_id,
-            symbol=self.config.SYMBOL,
-            order_type=order_type,
-            lots=lots,
-            open_price=price,
-            status=OrderStatus.FILLED,
-            open_time=datetime.now()
-        )
+        except Exception as e:
+            logger.error(f"发送市价单异常: {e}")
+            return None
 
     def send_pending_order(self, order_type: OrderType, lots: float, entry_price: float,
                            tp: Optional[float] = None, sl: Optional[float] = None) -> Optional[Position]:
-        """发送挂单（止损单）"""
-        if self.use_real:
-            try:
-                mt5_type_map = {
-                    OrderType.BUY_STOP:  mt5.ORDER_TYPE_BUY_STOP,
-                    OrderType.SELL_STOP: mt5.ORDER_TYPE_SELL_STOP,
-                }
-                mt5_type = mt5_type_map.get(order_type)
-                if mt5_type is None:
-                    logger.error(f"不支持的挂单类型: {order_type}")
-                    return None
+        """发送挂单（止损单，仅从 MT5 执行）"""
+        if not self.use_real:
+            raise RuntimeError("❌ MT5 未连接，无法发送挂单。")
 
-                request = {
-                    "action":       mt5.TRADE_ACTION_PENDING,
-                    "symbol":       self.config.SYMBOL,
-                    "volume":       lots,
-                    "type":         mt5_type,
-                    "price":        entry_price,
-                    "tp":           tp or 0.0,
-                    "sl":           sl or 0.0,
-                    "deviation":    10,
-                    "magic":        20260322,
-                    "comment":      "quant_bot_pending",
-                    "type_time":    mt5.ORDER_TIME_GTC,
-                    "type_filling": mt5.ORDER_FILLING_RETURN,
-                }
-                result = mt5.order_send(request)
-                if result and result.retcode == mt5.TRADE_RETCODE_DONE:
-                    logger.info(f"📌 挂单创建: {order_type.value} {lots}手 @ {entry_price}  TP={tp}  SL={sl}  ticket={result.order}")
-                    return Position(
-                        ticket_id=result.order,
-                        symbol=self.config.SYMBOL,
-                        order_type=order_type,
-                        lots=lots,
-                        open_price=entry_price,
-                        tp=tp,
-                        sl=sl,
-                        status=OrderStatus.PENDING,
-                        open_time=datetime.now()
-                    )
-                else:
-                    err = result.retcode if result else "无结果"
-                    logger.error(f"❌ 挂单失败: retcode={err} | {mt5.last_error()}")
-                    return None
-            except Exception as e:
-                logger.error(f"发送挂单异常: {e}")
+        try:
+            mt5_type_map = {
+                OrderType.BUY_STOP:  mt5.ORDER_TYPE_BUY_STOP,
+                OrderType.SELL_STOP: mt5.ORDER_TYPE_SELL_STOP,
+            }
+            mt5_type = mt5_type_map.get(order_type)
+            if mt5_type is None:
+                logger.error(f"不支持的挂单类型: {order_type}")
                 return None
 
-        ticket_id = int(time.time() * 1000)
-        logger.info(f"[模拟] 挂单创建: {order_type.value} {lots}手 @ {entry_price}, TP={tp}, SL={sl}")
-        return Position(
-            ticket_id=ticket_id,
-            symbol=self.config.SYMBOL,
-            order_type=order_type,
-            lots=lots,
-            open_price=entry_price,
-            tp=tp,
-            sl=sl,
-            status=OrderStatus.PENDING,
-            open_time=datetime.now()
-        )
+            request = {
+                "action":       mt5.TRADE_ACTION_PENDING,
+                "symbol":       self.config.SYMBOL,
+                "volume":       lots,
+                "type":         mt5_type,
+                "price":        entry_price,
+                "tp":           tp or 0.0,
+                "sl":           sl or 0.0,
+                "deviation":    10,
+                "magic":        20260322,
+                "comment":      "quant_bot_pending",
+                "type_time":    mt5.ORDER_TIME_GTC,
+                "type_filling": mt5.ORDER_FILLING_RETURN,
+            }
+            result = mt5.order_send(request)
+            if result and result.retcode == mt5.TRADE_RETCODE_DONE:
+                logger.info(f"📌 挂单创建: {order_type.value} {lots}手 @ {entry_price}  TP={tp}  SL={sl}  ticket={result.order}")
+                return Position(
+                    ticket_id=result.order,
+                    symbol=self.config.SYMBOL,
+                    order_type=order_type,
+                    lots=lots,
+                    open_price=entry_price,
+                    tp=tp,
+                    sl=sl,
+                    status=OrderStatus.PENDING,
+                    open_time=datetime.now()
+                )
+            else:
+                err = result.retcode if result else "无结果"
+                logger.error(f"❌ 挂单失败: retcode={err} | {mt5.last_error()}")
+                return None
+        except Exception as e:
+            logger.error(f"发送挂单异常: {e}")
+            return None
 
     def cancel_order(self, ticket_id: int) -> bool:
-        """撤销挂单"""
-        if self.use_real:
-            try:
-                request = {"action": mt5.TRADE_ACTION_REMOVE, "order": ticket_id}
-                result = mt5.order_send(request)
-                if result and result.retcode == mt5.TRADE_RETCODE_DONE:
-                    logger.info(f"挂单已撤销: {ticket_id}")
-                    return True
-                else:
-                    logger.error(f"撤单失败: ticket={ticket_id}  retcode={result.retcode if result else 'N/A'}")
-                    return False
-            except Exception as e:
-                logger.error(f"撤单异常: {e}")
-                return False
+        """撤销挂单（仅从 MT5 执行）"""
+        if not self.use_real:
+            raise RuntimeError("❌ MT5 未连接，无法撤销订单。")
 
-        logger.info(f"[模拟] 订单已撤销: {ticket_id}")
-        return True
+        try:
+            request = {"action": mt5.TRADE_ACTION_REMOVE, "order": ticket_id}
+            result = mt5.order_send(request)
+            if result and result.retcode == mt5.TRADE_RETCODE_DONE:
+                logger.info(f"挂单已撤销: {ticket_id}")
+                return True
+            else:
+                logger.error(f"撤单失败: ticket={ticket_id}  retcode={result.retcode if result else 'N/A'}")
+                return False
+        except Exception as e:
+            logger.error(f"撤单异常: {e}")
+            return False
 
     def get_open_orders(self) -> List[Position]:
         """获取所有未成交订单"""
-        if self.use_real:
-            try:
-                orders = mt5.orders_get(symbol=self.config.SYMBOL)
-                return [] if orders is None else list(orders)
-            except Exception as e:
-                logger.error(f"获取挂单列表失败: {e}")
-        return []
+        if not self.use_real:
+            return []
+        try:
+            orders = mt5.orders_get(symbol=self.config.SYMBOL)
+            return [] if orders is None else list(orders)
+        except Exception as e:
+            logger.error(f"获取挂单列表失败: {e}")
+            return []
 
     def get_open_positions(self) -> List[Position]:
         """获取所有持仓"""
-        if self.use_real:
-            try:
-                positions = mt5.positions_get(symbol=self.config.SYMBOL)
-                return [] if positions is None else list(positions)
-            except Exception as e:
-                logger.error(f"获取持仓列表失败: {e}")
-        return []
+        if not self.use_real:
+            return []
+        try:
+            positions = mt5.positions_get(symbol=self.config.SYMBOL)
+            return [] if positions is None else list(positions)
+        except Exception as e:
+            logger.error(f"获取持仓列表失败: {e}")
+            return []
 
 
 # ==================== 仓位管理器 ====================
@@ -539,9 +512,8 @@ class TradingManager:
 
                 # 每秒在终端显示当前报价
                 now = datetime.now().strftime("%H:%M:%S")
-                mode = "实盘" if self.mt4.use_real else "模拟"
                 print(f"\r[{now}]  {self.config.SYMBOL}  Bid={bid:.3f}  Ask={ask:.3f}  "
-                      f"持仓={len(self.positions)}  挂单={len(self.pending_orders)}  [{mode}]", end="", flush=True)
+                      f"持仓={len(self.positions)}  挂单={len(self.pending_orders)}  [MT5]", end="", flush=True)
 
                 # 回撤检查
                 if not self._check_drawdown(account):
@@ -704,27 +676,29 @@ class TradingManager:
                     continue
 
     def _close_position(self, position: Position, close_price: float):
-        """平仓"""
-        if self.mt4.use_real:
-            try:
-                mt5_type = mt5.ORDER_TYPE_SELL if position.order_type == OrderType.BUY else mt5.ORDER_TYPE_BUY
-                request  = {
-                    "action":       mt5.TRADE_ACTION_DEAL,
-                    "symbol":       self.config.SYMBOL,
-                    "volume":       position.lots,
-                    "type":         mt5_type,
-                    "position":     position.ticket_id,
-                    "price":        close_price,
-                    "deviation":    10,
-                    "magic":        20260322,
-                    "comment":      "quant_bot_close",
-                    "type_filling": mt5.ORDER_FILLING_IOC,
-                }
-                result = mt5.order_send(request)
-                if result and result.retcode != mt5.TRADE_RETCODE_DONE:
-                    logger.error(f"平仓失败: retcode={result.retcode}")
-            except Exception as e:
-                logger.error(f"平仓异常: {e}")
+        """平仓（仅从 MT5 执行）"""
+        if not self.mt4.use_real:
+            raise RuntimeError("❌ MT5 未连接，无法平仓。")
+
+        try:
+            mt5_type = mt5.ORDER_TYPE_SELL if position.order_type == OrderType.BUY else mt5.ORDER_TYPE_BUY
+            request  = {
+                "action":       mt5.TRADE_ACTION_DEAL,
+                "symbol":       self.config.SYMBOL,
+                "volume":       position.lots,
+                "type":         mt5_type,
+                "position":     position.ticket_id,
+                "price":        close_price,
+                "deviation":    10,
+                "magic":        20260322,
+                "comment":      "quant_bot_close",
+                "type_filling": mt5.ORDER_FILLING_IOC,
+            }
+            result = mt5.order_send(request)
+            if result and result.retcode != mt5.TRADE_RETCODE_DONE:
+                logger.error(f"平仓失败: retcode={result.retcode}")
+        except Exception as e:
+            logger.error(f"平仓异常: {e}")
 
         position.close_price = close_price
         position.close_time  = datetime.now()
@@ -780,7 +754,7 @@ def main():
     if config.MT5_LOGIN:
         logger.info(f"📋 MT5 配置 | 账户: {config.MT5_LOGIN} | 服务器: {config.MT5_SERVER}")
     else:
-        logger.warning("⚠️  未配置 MT5 账户，将以模拟模式运行（价格基准 ~4490）")
+        raise RuntimeError("❌ 未配置 MT5 账户（MT5_LOGIN 未设置），无法启动。请先设置环境变量 MT5_LOGIN。")
 
     mt4    = MT4Interface(config)
     trader = TradingManager(mt4, config)
