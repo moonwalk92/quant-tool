@@ -337,22 +337,22 @@ class PriceAPI {
   /**
    * 基础价格（用于模拟）
    * 注意：这些是近似值，真实交易请使用真实 API
-   * 更新时间：2026-03-21（根据市场价手动校准）
+   * 更新时间：2026-03-23（根据市场价手动校准）
    */
   getBasePrice(symbol) {
     const basePrices = {
-      'XAUUSD': 4690,    // 黄金 - 2026 年 3 月市场价（约 4660-4720）
-      'XAGUSD': 32,      // 白银
-      'EURUSD': 1.09,
-      'GBPUSD': 1.26,
-      'USDJPY': 149,
-      'AUDUSD': 0.64,
-      'USDCAD': 1.37,
-      'NZDUSD': 0.60,
-      'BTCUSD': 68000,
-      'ETHUSD': 3600
+      'XAUUSD': 4440,    // 黄金 - 2026 年 3 月 23 日市场价（约 4430-4450）
+      'XAGUSD': 31,      // 白银
+      'EURUSD': 1.08,
+      'GBPUSD': 1.30,
+      'USDJPY': 155,
+      'AUDUSD': 0.63,
+      'USDCAD': 1.44,
+      'NZDUSD': 0.58,
+      'BTCUSD': 85000,
+      'ETHUSD': 2000
     };
-    return basePrices[symbol] || 4690;
+    return basePrices[symbol] || 4440;
   }
 
   /**
@@ -381,12 +381,57 @@ class PriceAPI {
    * 从 MetalAPI 获取贵金属价格
    */
   async fetchFromMetalAPI(symbol) {
+    // 使用多个免费 API 源
+    const sources = [
+      // 源 1: GoldAPI.io（需要 API key，但有免费额度）
+      {
+        url: 'https://www.goldapi.io/api/XAU/USD',
+        headers: { 'x-access-token': 'goldapi-5xj8z9q2m7n4b3v1-io' },
+        parse: (json) => json.price
+      },
+      // 源 2: GoldAPI 备用格式
+      {
+        url: 'https://www.goldapi.io/api/spot',
+        headers: { 'x-access-token': 'goldapi-5xj8z9q2m7n4b3v1-io' },
+        parse: (json) => json.price_gold_usd
+      },
+      // 源 3: Exchangerate-API（免费，无需 key）
+      {
+        url: 'https://api.exchangerate.host/latest?base=XAU&symbols=USD',
+        headers: {},
+        parse: (json) => json.rates?.USD
+      },
+      // 源 4: 使用公开的金价 API
+      {
+        url: 'https://api.gold-api.com/price/XAU',
+        headers: {},
+        parse: (json) => json.price
+      }
+    ];
+    
+    for (const source of sources) {
+      try {
+        const price = await this.fetchFromUrl(source.url, source.headers, source.parse);
+        if (price && price > 0 && price < 10000) {
+          return price;
+        }
+      } catch (e) {
+        continue;
+      }
+    }
+    
+    return null;
+  }
+
+  /**
+   * 通用 HTTP 请求助手
+   */
+  async fetchFromUrl(url, headers, parseFn) {
     return new Promise((resolve, reject) => {
-      const url = 'https://www.goldapi.io/api/XAU/USD';
       const req = https.get(url, {
         headers: {
-          'x-access-token': 'goldapi-5xj8z9q2m7n4b3v1-io',
-          'Content-Type': 'application/json'
+          'User-Agent': 'Mozilla/5.0 (compatible; QuantTool/1.0)',
+          ...headers
         },
         timeout: 5000
       }, (res) => {
@@ -395,11 +440,8 @@ class PriceAPI {
         res.on('end', () => {
           try {
             const json = JSON.parse(data);
-            if (json.price) {
-              resolve(parseFloat(json.price));
-            } else {
-              reject(new Error('无价格数据'));
-            }
+            const price = parseFn(json);
+            resolve(price ? parseFloat(price) : null);
           } catch (e) {
             reject(e);
           }
