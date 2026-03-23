@@ -114,9 +114,11 @@ class PriceAPI {
   async getPrice(symbol = 'XAUUSD') {
     const now = Date.now();
     
-    // 检查缓存
-    if (this.lastPrice && this.lastSymbol === symbol && (now - this.lastUpdate) < this.cacheDuration) {
-      return this.lastPrice;
+    // 检查缓存（按品种区分）
+    const cacheKey = symbol.toUpperCase();
+    if (this.metalCache[cacheKey] && (now - this.metalCache[cacheKey].timestamp) < this.metalCacheDuration) {
+      console.log(`[价格 API] 使用缓存：${cacheKey}`);
+      return this.metalCache[cacheKey].price;
     }
 
     let price = null;
@@ -124,10 +126,10 @@ class PriceAPI {
     // 检查市场状态（周末休市检测）
     const marketStatus = this.getMarketStatus();
     if (!marketStatus.isOpen) {
-      console.log(`[价格 API] 市场休市中（周末），使用最新缓存价格`);
-      // 周末返回最后已知价格，不更新
-      if (this.lastPrice) {
-        return this.lastPrice;
+      console.log(`[价格 API] 市场休市中（周末），使用缓存价格`);
+      // 周末返回最后已知价格（按品种）
+      if (this.metalCache[cacheKey]) {
+        return this.metalCache[cacheKey].price;
       }
     }
     
@@ -137,9 +139,11 @@ class PriceAPI {
         const mt4Data = await this.mt4.getPriceData(symbol);
         if (mt4Data && mt4Data.price > 0) {
           price = mt4Data.price;
-          this.lastPrice = price;
-          this.lastSymbol = symbol;
-          this.lastUpdate = now;
+          // 保存到品种缓存
+          this.metalCache[cacheKey] = {
+            price: price,
+            timestamp: now
+          };
           
           // 记录价格历史
           this.recordPriceHistory(symbol, price);
@@ -158,9 +162,11 @@ class PriceAPI {
         const investingData = await this.investing.getPrice(symbol);
         if (investingData && investingData.price > 0) {
           price = investingData.price;
-          this.lastPrice = price;
-          this.lastSymbol = symbol;
-          this.lastUpdate = now;
+          // 保存到品种缓存
+          this.metalCache[cacheKey] = {
+            price: price,
+            timestamp: now
+          };
           
           // 记录价格历史
           this.recordPriceHistory(symbol, price);
@@ -178,9 +184,10 @@ class PriceAPI {
       try {
         price = await this.fetchFromFMP(symbol);
         if (price && price > 0) {
-          this.lastPrice = price;
-          this.lastSymbol = symbol;
-          this.lastUpdate = now;
+          this.metalCache[cacheKey] = {
+            price: price,
+            timestamp: now
+          };
           console.log(`[价格 API] ${symbol} 获取成功 (FMP): $${price.toFixed(2)}`);
           return price;
         }
@@ -194,9 +201,10 @@ class PriceAPI {
       try {
         price = await this.fetchFromAlphaVantage(symbol);
         if (price && price > 0) {
-          this.lastPrice = price;
-          this.lastSymbol = symbol;
-          this.lastUpdate = now;
+          this.metalCache[cacheKey] = {
+            price: price,
+            timestamp: now
+          };
           console.log(`[价格 API] ${symbol} 获取成功 (Alpha Vantage): $${price.toFixed(2)}`);
           return price;
         }
@@ -210,9 +218,10 @@ class PriceAPI {
       try {
         price = await this.fetchFromTwelveData(symbol);
         if (price && price > 0) {
-          this.lastPrice = price;
-          this.lastSymbol = symbol;
-          this.lastUpdate = now;
+          this.metalCache[cacheKey] = {
+            price: price,
+            timestamp: now
+          };
           console.log(`[价格 API] ${symbol} 获取成功 (Twelve Data): $${price.toFixed(2)}`);
           return price;
         }
@@ -226,9 +235,10 @@ class PriceAPI {
       try {
         price = await this.fetchFromFreeAPI(symbol);
         if (price && price > 0) {
-          this.lastPrice = price;
-          this.lastSymbol = symbol;
-          this.lastUpdate = now;
+          this.metalCache[cacheKey] = {
+            price: price,
+            timestamp: now
+          };
           console.log(`[价格 API] ${symbol} 获取成功 (Free API): $${price.toFixed(2)}`);
           return price;
         }
@@ -238,9 +248,9 @@ class PriceAPI {
     }
 
     // 3. API 都失败，使用缓存（如果有）
-    if (this.lastPrice) {
+    if (this.metalCache[cacheKey]) {
       console.warn('[价格 API] 使用缓存价格（API 不可用）');
-      return this.lastPrice;
+      return this.metalCache[cacheKey].price;
     }
 
     // 4. 最后选择：模拟价格（带小幅波动）
