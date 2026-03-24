@@ -622,24 +622,6 @@ class PriceAPI {
   }
 
   /**
-   * 获取带时间戳的完整价格数据
-   */
-  async getPriceData(symbol = 'XAUUSD') {
-    const price = await this.getPrice(symbol);
-    
-    // 根据品种计算点差
-    const spread = this.getSpread(symbol);
-    
-    return {
-      bid: price - spread,
-      ask: price + spread,
-      symbol: symbol,
-      timestamp: Date.now(),
-      source: 'twelve-data-api'
-    };
-  }
-
-  /**
    * 获取品种点差
    */
   getSpread(symbol) {
