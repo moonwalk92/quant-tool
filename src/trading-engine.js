@@ -344,9 +344,11 @@ class TradingEngine {
    * 处理价格更新（每秒调用）
    */
   async onPriceUpdate(priceData) {
-    if (!this.isTrading) return;
-    
+    // 总是更新价格（即使不在交易状态，前端也需要显示价格）
     this.currentPrice = priceData.bid;
+    
+    // 如果不在交易状态，不需要执行后续逻辑
+    if (!this.isTrading) return;
     
     // 检查回撤
     if (this.checkDrawdownLimit()) {
