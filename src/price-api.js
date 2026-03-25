@@ -25,11 +25,11 @@ class PriceAPI {
     
     // 股票价格缓存
     this.stockCache = {};
-    this.stockCacheDuration = 1000;
+    this.stockCacheDuration = 5000; // 5 秒
     
-    // 贵金属价格缓存
+    // 贵金属/外汇价格缓存
     this.metalCache = {};
-    this.metalCacheDuration = 1000;
+    this.metalCacheDuration = 5000; // 5 秒（避免频繁波动）
     
     // Investing 爬虫实例
     this.investing = new InvestingCrawler();
@@ -131,6 +131,7 @@ class PriceAPI {
       if (this.metalCache[cacheKey]) {
         return this.metalCache[cacheKey].price;
       }
+      // 如果缓存为空，继续执行下面的逻辑获取价格并缓存
     }
     
     // 1. 尝试 MT4 Bridge（最准确，交易商价格）- 优先！
@@ -255,10 +256,20 @@ class PriceAPI {
 
     // 4. 最后选择：模拟价格（带小幅波动）
     const basePrice = this.getBasePrice(symbol);
-    const fluctuation = (Math.random() - 0.5) * 2; // ±1 美元波动
+    // 根据品种类型使用不同的波动范围
+    // 外汇/贵金属：±0.5% 波动；加密货币：±2% 波动
+    const isCrypto = symbol.includes('BTC') || symbol.includes('ETH');
+    const volatility = isCrypto ? 0.02 : 0.005; // 2% or 0.5%
+    const fluctuation = basePrice * volatility * (Math.random() - 0.5) * 2;
     const simulatedPrice = basePrice + fluctuation;
     
-    console.warn(`[价格 API] 使用模拟价格 ${symbol}: $${simulatedPrice.toFixed(2)} (API 不可用)`);
+    // 保存到缓存（避免下次重复计算）
+    this.metalCache[cacheKey] = {
+      price: simulatedPrice,
+      timestamp: now
+    };
+    
+    console.warn(`[价格 API] 使用模拟价格 ${symbol}: $${simulatedPrice.toFixed(4)} (API 不可用)`);
     return simulatedPrice;
   }
 
