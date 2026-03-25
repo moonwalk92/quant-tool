@@ -189,6 +189,8 @@ class PriceAPI {
             price: price,
             timestamp: now
           };
+          // 记录价格历史
+          this.recordPriceHistory(symbol, price);
           console.log(`[价格 API] ${symbol} 获取成功 (FMP): $${price.toFixed(2)}`);
           return price;
         }
@@ -206,6 +208,8 @@ class PriceAPI {
             price: price,
             timestamp: now
           };
+          // 记录价格历史
+          this.recordPriceHistory(symbol, price);
           console.log(`[价格 API] ${symbol} 获取成功 (Alpha Vantage): $${price.toFixed(2)}`);
           return price;
         }
@@ -223,6 +227,8 @@ class PriceAPI {
             price: price,
             timestamp: now
           };
+          // 记录价格历史
+          this.recordPriceHistory(symbol, price);
           console.log(`[价格 API] ${symbol} 获取成功 (Twelve Data): $${price.toFixed(2)}`);
           return price;
         }
@@ -240,6 +246,8 @@ class PriceAPI {
             price: price,
             timestamp: now
           };
+          // 记录价格历史
+          this.recordPriceHistory(symbol, price);
           console.log(`[价格 API] ${symbol} 获取成功 (Free API): $${price.toFixed(2)}`);
           return price;
         }
@@ -257,17 +265,27 @@ class PriceAPI {
     // 4. 最后选择：模拟价格（带小幅波动）
     const basePrice = this.getBasePrice(symbol);
     // 根据品种类型使用不同的波动范围
-    // 外汇/贵金属：±0.5% 波动；加密货币：±2% 波动
+    // 外汇/贵金属：±0.3% 波动；加密货币：±2% 波动（降低波动幅度）
     const isCrypto = symbol.includes('BTC') || symbol.includes('ETH');
-    const volatility = isCrypto ? 0.02 : 0.005; // 2% or 0.5%
-    const fluctuation = basePrice * volatility * (Math.random() - 0.5) * 2;
-    const simulatedPrice = basePrice + fluctuation;
+    const simVolatility = isCrypto ? 0.02 : 0.003; // 2% or 0.3%
     
-    // 保存到缓存（避免下次重复计算）
+    // 使用缓存价格作为基准（如果有），避免跳变
+    let referencePrice = basePrice;
+    if (this.metalCache[cacheKey] && this.metalCache[cacheKey].price) {
+      referencePrice = this.metalCache[cacheKey].price;
+    }
+    
+    const fluctuation = referencePrice * simVolatility * (Math.random() - 0.5) * 2;
+    const simulatedPrice = referencePrice + fluctuation;
+    
+    // 保存到缓存
     this.metalCache[cacheKey] = {
       price: simulatedPrice,
       timestamp: now
     };
+    
+    // 记录价格历史（用于波动计算）
+    this.recordPriceHistory(symbol, simulatedPrice);
     
     console.warn(`[价格 API] 使用模拟价格 ${symbol}: $${simulatedPrice.toFixed(4)} (API 不可用)`);
     return simulatedPrice;
@@ -311,15 +329,35 @@ class PriceAPI {
     }
     
     const currentPrice = history[history.length - 1].price;
-    const oldPrice = history[0].price;
+    const basePrice = this.getBasePrice(symbol);
     
-    const prices = history.map(h => h.price);
+    // 检查历史记录是否属于当前货币对（防止切换品种后使用旧数据）
+    // 如果第一个历史价格与基准价格差异超过 50%，说明可能是旧数据
+    const oldPrice = history[0].price;
+    const priceRatio = oldPrice / basePrice;
+    const isOldData = priceRatio < 0.5 || priceRatio > 2.0;
+    
+    // 如果是旧数据，只使用最近几条记录
+    const effectiveHistory = isOldData ? history.slice(-5) : history;
+    
+    if (effectiveHistory.length < 2) {
+      return {
+        change: 0,
+        changePercent: 0,
+        high: currentPrice,
+        low: currentPrice,
+        avg: currentPrice
+      };
+    }
+    
+    const effectiveOldPrice = effectiveHistory[0].price;
+    const prices = effectiveHistory.map(h => h.price);
     const high = Math.max(...prices);
     const low = Math.min(...prices);
     const avg = prices.reduce((a, b) => a + b, 0) / prices.length;
     
-    const change = currentPrice - oldPrice;
-    const changePercent = (change / oldPrice) * 100;
+    const change = currentPrice - effectiveOldPrice;
+    const changePercent = (change / effectiveOldPrice) * 100;
     
     return {
       change: change,
