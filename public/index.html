@@ -985,13 +985,19 @@
     let allPositions = [];
     let allPendingOrders = [];
     
+    // 当前交易品种（默认 XAUUSD）
+    let currentSymbol = 'XAUUSD';
+    
     console.log('🔍 开始连接 WebSocket...');
     
     // WebSocket 连接
     socket.on('connect', () => {
       console.log('✅ 已连接到服务器，socket.id:', socket.id);
-      // 请求初始价格（页面加载时调用一次 API）
-      socket.emit('requestPrice', { symbol: currentSymbol || 'XAUUSD' });
+      // 延迟 500ms 请求初始价格，确保后端数据源已准备好
+      setTimeout(() => {
+        socket.emit('requestPrice', { symbol: currentSymbol });
+        console.log('📡 请求初始价格:', currentSymbol);
+      }, 500);
     });
     
     socket.on('connect_error', (error) => {

@@ -394,48 +394,18 @@ app.delete('/api/strategy/history/:id', (req, res) => {
   }
 });
 
-// WebSocket 连接
-io.on('connection', (socket) => {
-  console.log('[WebSocket] 客户端连接');
-  
-  // 发送当前状态
-  socket.emit('status', engine.getStatus());
-  
-  // 定时推送状态（每秒）
-  const interval = setInterval(() => {
-    const status = engine.getStatus();
-    socket.emit('status', status);
-    console.log('[WebSocket] 推送状态:', status.currentPrice, status.currentEquity);
-  }, 1000);
-  
-  socket.on('disconnect', () => {
-    console.log('[WebSocket] 客户端断开');
-    clearInterval(interval);
-  });
-  
-  // 处理客户端命令
-  socket.on('command', async (data) => {
-    switch (data.action) {
-      case 'start':
-        await engine.start();
-        break;
-      case 'stop':
-        await engine.stop();
-        break;
-      case 'reset':
-        engine.reset();
-        break;
-    }
-    io.emit('status', engine.getStatus());
-  });
-});
-
 // 真实价格更新（每秒获取并推送）
 let priceUpdateInterval = null;
-let currentSymbol = 'XAUUSD';
+let currentSymbol = 'XAUUSD'; // 默认品种，确保启动时就有值
 
-async function updateRealPrice() {
+async function updateRealPrice(symbol) {
   try {
+    // 如果指定了新品种，更新当前品种
+    if (symbol && symbol !== currentSymbol) {
+      currentSymbol = symbol;
+      console.log('[价格切换] 切换到品种:', currentSymbol);
+    }
+    
     const priceData = await priceAPI.getPriceData(currentSymbol);
     
     // 更新引擎
@@ -454,6 +424,48 @@ async function updateRealPrice() {
   }
 }
 
+// WebSocket 连接
+io.on('connection', (socket) => {
+  console.log('[WebSocket] 客户端连接');
+  
+  // 发送当前状态
+  socket.emit('status', engine.getStatus());
+  
+  // 定时推送状态（每秒）
+  const interval = setInterval(() => {
+    const status = engine.getStatus();
+    socket.emit('status', status);
+  }, 1000);
+  
+  // 处理客户端命令
+  socket.on('command', async (data) => {
+    switch (data.action) {
+      case 'start':
+        await engine.start();
+        break;
+      case 'stop':
+        await engine.stop();
+        break;
+      case 'reset':
+        engine.reset();
+        break;
+    }
+    io.emit('status', engine.getStatus());
+  });
+  
+  // 客户端请求新价格时获取（页面刷新或切换品种）
+  socket.on('requestPrice', async (data) => {
+    const symbol = data?.symbol;
+    console.log('[WebSocket] 收到价格请求:', symbol || currentSymbol);
+    await updateRealPrice(symbol);
+  });
+  
+  socket.on('disconnect', () => {
+    console.log('[WebSocket] 客户端断开');
+    clearInterval(interval);
+  });
+});
+
 // 启动时获取一次价格
 updateRealPrice();
 
@@ -461,27 +473,6 @@ updateRealPrice();
 setInterval(() => {
   updateRealPrice();
 }, 1000);
-
-// 监听品种切换事件
-io.on('connection', (socket) => {
-  console.log('[WebSocket] 客户端连接');
-  
-  // 客户端请求新价格时获取（页面刷新或切换品种）
-  socket.on('requestPrice', async (data) => {
-    const symbol = data?.symbol || currentSymbol;
-    if (symbol !== currentSymbol) {
-      currentSymbol = symbol;
-      await updateRealPrice();
-    } else {
-      // 页面刷新，获取一次新价格
-      await updateRealPrice();
-    }
-  });
-  
-  socket.on('disconnect', () => {
-    console.log('[WebSocket] 客户端断开');
-  });
-});
 
 const PORT = process.env.PORT || 3000;
 
