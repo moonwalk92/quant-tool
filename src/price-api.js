@@ -391,38 +391,35 @@ class PriceAPI {
    * 从 MetalAPI 获取贵金属价格
    */
   async fetchFromMetalAPI(symbol) {
+    // 解析品种代码（XAUUSD -> XAU, XAGUSD -> XAG）
+    const metal = symbol.substring(0, 3).toUpperCase();
+    
     // 使用多个免费 API 源
     const sources = [
       // 源 1: GoldAPI.io（需要 API key，但有免费额度）
       {
-        url: 'https://www.goldapi.io/api/XAU/USD',
+        url: `https://www.goldapi.io/api/${metal}/USD`,
         headers: { 'x-access-token': 'goldapi-5xj8z9q2m7n4b3v1-io' },
         parse: (json) => json.price
       },
-      // 源 2: GoldAPI 备用格式
+      // 源 2: 使用公开的金价 API（支持多种金属）
       {
-        url: 'https://www.goldapi.io/api/spot',
-        headers: { 'x-access-token': 'goldapi-5xj8z9q2m7n4b3v1-io' },
-        parse: (json) => json.price_gold_usd
+        url: `https://api.gold-api.com/price/${metal}`,
+        headers: {},
+        parse: (json) => json.price
       },
       // 源 3: Exchangerate-API（免费，无需 key）
       {
-        url: 'https://api.exchangerate.host/latest?base=XAU&symbols=USD',
+        url: `https://api.exchangerate.host/latest?base=${metal}&symbols=USD`,
         headers: {},
         parse: (json) => json.rates?.USD
-      },
-      // 源 4: 使用公开的金价 API
-      {
-        url: 'https://api.gold-api.com/price/XAU',
-        headers: {},
-        parse: (json) => json.price
       }
     ];
     
     for (const source of sources) {
       try {
         const price = await this.fetchFromUrl(source.url, source.headers, source.parse);
-        if (price && price > 0 && price < 10000) {
+        if (price && price > 0 && price < 100000) {
           return price;
         }
       } catch (e) {
