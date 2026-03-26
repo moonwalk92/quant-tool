@@ -269,10 +269,22 @@ class PriceAPI {
     const isCrypto = symbol.includes('BTC') || symbol.includes('ETH');
     const simVolatility = isCrypto ? 0.02 : 0.003; // 2% or 0.3%
     
-    // 使用缓存价格作为基准（如果有），避免跳变
+    // 使用缓存价格作为基准（如果有），但如果偏离基础价格太多则重置
     let referencePrice = basePrice;
     if (this.metalCache[cacheKey] && this.metalCache[cacheKey].price) {
-      referencePrice = this.metalCache[cacheKey].price;
+      const cachedPrice = this.metalCache[cacheKey].price;
+      // 检查缓存价格是否偏离基础价格超过 5%
+      const deviation = Math.abs(cachedPrice - basePrice) / basePrice;
+      if (deviation < 0.05) {
+        // 偏离小于 5%，使用缓存价格保持平滑
+        referencePrice = cachedPrice;
+      } else {
+        // 偏离太大，重置到基础价格（可能是旧数据或错误数据）
+        console.log(`[价格 API] 缓存价格 ${cachedPrice.toFixed(2)} 偏离基础价格 ${basePrice} 超过 5%，重置`);
+        referencePrice = basePrice;
+        // 清空旧缓存
+        this.metalCache[cacheKey] = null;
+      }
     }
     
     const fluctuation = referencePrice * simVolatility * (Math.random() - 0.5) * 2;
