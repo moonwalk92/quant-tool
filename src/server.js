@@ -610,8 +610,26 @@ app.post('/api/real/start', async (req, res) => {
     
     const config = req.body;
     
-    // 更新配置
-    if (realTradingEngine) {
+    // 如果交易引擎未初始化，创建新实例
+    if (!realTradingEngine) {
+      console.log('[真实交易] 创建交易引擎实例');
+      const TradingEngine = require('./trading-engine');
+      realTradingEngine = new TradingEngine({
+        symbol: config.symbol || 'XAUUSD',
+        initialCapital: 10000,
+        riskPerTrade: config.riskPerTrade || 0.01,
+        minLots: 0.01,
+        maxLots: 1.0,
+        takeProfitPoints: config.takeProfitPoints || 20,
+        stopLossPoints: config.stopLossPoints || 20,
+        pendingOrderInterval: 5,
+        maxDrawdown: 0.20,
+        pointValue: 0.1,
+        contractSize: 100,
+        useRealMT4: process.env.USE_REAL_MT4 === 'true'
+      });
+    } else {
+      // 更新现有实例的配置
       if (config.symbol) realTradingEngine.symbol = config.symbol;
       if (config.riskPerTrade) realTradingEngine.riskPerTrade = config.riskPerTrade;
       if (config.takeProfitPoints) realTradingEngine.takeProfitPoints = config.takeProfitPoints;
@@ -627,6 +645,7 @@ app.post('/api/real/start', async (req, res) => {
       status: realTradingEngine.getStatus()
     });
   } catch (error) {
+    console.error('[真实交易] 启动失败:', error);
     res.status(500).json({ success: false, error: error.message });
   }
 });
