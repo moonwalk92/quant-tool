@@ -760,13 +760,18 @@
       }
       
       try {
+        console.log('[前端] 尝试连接 MT5:', { login, server });
+        
         const response = await fetch('/api/real/connect', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ login, password, server })
         });
         
+        console.log('[前端] 响应状态:', response.status);
+        
         const result = await response.json();
+        console.log('[前端] 响应结果:', result);
         
         if (result.success) {
           isConnected = true;
@@ -774,12 +779,22 @@
           document.getElementById('connectionStatus').textContent = '● 已连接 MT5';
           document.getElementById('btnStart').disabled = false;
           closeModal('connectModal');
-          alert('MT5 连接成功！');
+          
+          let msg = 'MT5 连接成功！';
+          if (result.warning) {
+            msg += '\n\n注意：' + result.warning;
+          }
+          alert(msg);
         } else {
-          alert('连接失败：' + result.error);
+          const errorMsg = result.error || result.message || '连接失败，原因未知';
+          console.error('[前端] 连接失败:', errorMsg);
+          alert('连接失败：' + errorMsg);
         }
       } catch (error) {
-        alert('连接失败：' + error.message);
+        console.error('[前端] 连接异常:', error);
+        alert('连接异常：' + (error.message || '网络错误，请检查服务器是否运行'));
+      }
+    }
       }
     }
     
