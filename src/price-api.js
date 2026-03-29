@@ -14,6 +14,7 @@ const MT4PriceProvider = require('./price-mt4');
 class PriceAPI {
   constructor() {
     this.lastPrice = null;
+    this.lastSource = 'unknown';  // 追踪最后成功的数据源
     this.lastUpdate = 0;
     this.cacheDuration = 100;
     this.fmpKey = process.env.FMP_API_KEY || '';
@@ -150,6 +151,7 @@ class PriceAPI {
           this.recordPriceHistory(symbol, price);
           
           console.log(`[价格 API] ${symbol} 获取成功 (MT4 Bridge): $${price.toFixed(2)}`);
+          this.lastSource = 'mt4-bridge';
           return price;
         }
       } catch (error) {
@@ -173,6 +175,7 @@ class PriceAPI {
           this.recordPriceHistory(symbol, price);
           
           console.log(`[价格 API] ${symbol} 获取成功 (Investing.com): $${price.toFixed(2)}`);
+          this.lastSource = 'investing.com';
           return price;
         }
       } catch (error) {
@@ -192,6 +195,7 @@ class PriceAPI {
           // 记录价格历史
           this.recordPriceHistory(symbol, price);
           console.log(`[价格 API] ${symbol} 获取成功 (FMP): $${price.toFixed(2)}`);
+          this.lastSource = 'fmp';
           return price;
         }
       } catch (error) {
@@ -211,6 +215,7 @@ class PriceAPI {
           // 记录价格历史
           this.recordPriceHistory(symbol, price);
           console.log(`[价格 API] ${symbol} 获取成功 (Alpha Vantage): $${price.toFixed(2)}`);
+          this.lastSource = 'alpha-vantage';
           return price;
         }
       } catch (error) {
@@ -230,6 +235,7 @@ class PriceAPI {
           // 记录价格历史
           this.recordPriceHistory(symbol, price);
           console.log(`[价格 API] ${symbol} 获取成功 (Twelve Data): $${price.toFixed(2)}`);
+          this.lastSource = 'twelve-data';
           return price;
         }
       } catch (error) {
@@ -249,6 +255,7 @@ class PriceAPI {
           // 记录价格历史
           this.recordPriceHistory(symbol, price);
           console.log(`[价格 API] ${symbol} 获取成功 (Free API): $${price.toFixed(2)}`);
+          this.lastSource = 'free-api';
           return price;
         }
       } catch (error) {
@@ -401,7 +408,7 @@ class PriceAPI {
       avg: volatility.avg,
       trend: volatility.trend,
       timestamp: Date.now(),
-      source: this.lastSymbol === symbol ? 'investing.com' : 'simulated'
+      source: this.lastSource || 'unknown'
     };
   }
 
@@ -412,18 +419,18 @@ class PriceAPI {
    */
   getBasePrice(symbol) {
     const basePrices = {
-      'XAUUSD': 4440,    // 黄金 - 2026 年 3 月 23 日市场价（约 4430-4450）
-      'XAGUSD': 31,      // 白银
+      'XAUUSD': 4495,    // 黄金 - 2026 年 3 月 29 日市场价（约 4490-4500）
+      'XAGUSD': 29,       // 白银 - 2026 年 3 月 29 日市场价（约 28-30）
       'EURUSD': 1.08,
       'GBPUSD': 1.30,
       'USDJPY': 155,
       'AUDUSD': 0.63,
       'USDCAD': 1.44,
       'NZDUSD': 0.58,
-      'BTCUSD': 85000,
+      'BTCUSD': 66000,     // 比特币 - 2026 年 3 月 29 日市场价
       'ETHUSD': 2000
     };
-    return basePrices[symbol] || 4440;
+    return basePrices[symbol] || 4495;
   }
 
   /**
