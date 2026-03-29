@@ -478,6 +478,28 @@
     .back-link:hover {
       color: #00d9ff;
     }
+    
+    @keyframes slideIn {
+      from {
+        transform: translateX(400px);
+        opacity: 0;
+      }
+      to {
+        transform: translateX(0);
+        opacity: 1;
+      }
+    }
+    
+    @keyframes slideOut {
+      from {
+        transform: translateX(0);
+        opacity: 1;
+      }
+      to {
+        transform: translateX(400px);
+        opacity: 0;
+      }
+    }
   </style>
 </head>
 <body>
@@ -754,6 +776,45 @@
       document.getElementById('drawdownProgress').style.width = `${Math.min(percent, 100)}%`;
     }
     
+    // 更新连接状态
+    function updateConnectionStatus(connected) {
+      const statusEl = document.getElementById('connectionStatus');
+      if (connected) {
+        isConnected = true;
+        statusEl.className = 'status-badge status-connected';
+        statusEl.textContent = '● 已连接 MT5';
+        document.getElementById('btnStart').disabled = false;
+        document.getElementById('btnStop').disabled = true;
+      } else {
+        isConnected = false;
+        statusEl.className = 'status-badge status-disconnected';
+        statusEl.textContent = '未连接 MT5';
+        document.getElementById('btnStart').disabled = true;
+        document.getElementById('btnStop').disabled = true;
+      }
+    }
+    
+    // 显示提示消息
+    function showAlert(type, message) {
+      // 移除已存在的提示
+      const existing = document.querySelector('.alert-temp');
+      if (existing) existing.remove();
+      
+      const alertClass = type === 'success' ? 'alert-success' : (type === 'warning' ? 'alert-warning' : 'alert-danger');
+      const alertEl = document.createElement('div');
+      alertEl.className = `alert ${alertClass} alert-temp`;
+      alertEl.style.cssText = 'position: fixed; top: 20px; right: 20px; z-index: 9999; max-width: 400px; animation: slideIn 0.3s ease;';
+      alertEl.innerHTML = `<span>${message}</span>`;
+      
+      document.body.appendChild(alertEl);
+      
+      // 3 秒后自动消失
+      setTimeout(() => {
+        alertEl.style.animation = 'slideOut 0.3s ease';
+        setTimeout(() => alertEl.remove(), 300);
+      }, 3000);
+    }
+    
     // 连接 MT5
     async function connectMT5() {
       document.getElementById('connectModal').style.display = 'flex';
@@ -766,9 +827,14 @@
       const server = document.getElementById('mt5Server').value;
       
       if (!login || !password || !server) {
-        alert('请填写完整的 MT5 账户信息');
+        showAlert('error', '请填写完整的 MT5 账户信息（账户号、密码、服务器）');
         return;
       }
+      
+      const btn = document.querySelector('#connectModal .btn-start');
+      const originalText = btn.textContent;
+      btn.disabled = true;
+      btn.textContent = '连接中...';
       
       try {
         console.log('[前端] 尝试连接 MT5:', { login, server });
@@ -786,33 +852,39 @@
         
         if (result.success) {
           isConnected = true;
-          document.getElementById('connectionStatus').className = 'status-badge status-connected';
-          document.getElementById('connectionStatus').textContent = '● 已连接 MT5';
-          document.getElementById('btnStart').disabled = false;
+          updateConnectionStatus(true);
           closeModal('connectModal');
           
-          let msg = 'MT5 连接成功！';
+          let msg = '✅ MT5 连接成功！';
           if (result.warning) {
-            msg += '\n\n注意：' + result.warning;
+            msg += '\n\n⚠️ ' + result.warning;
           }
-          alert(msg);
+          showAlert('success', msg);
         } else {
           const errorMsg = result.error || result.message || '连接失败，原因未知';
           console.error('[前端] 连接失败:', errorMsg);
-          alert('连接失败：' + errorMsg);
+          showAlert('error', '❌ 连接失败：' + errorMsg);
         }
       } catch (error) {
         console.error('[前端] 连接异常:', error);
-        alert('连接异常：' + (error.message || '网络错误，请检查服务器是否运行'));
+        showAlert('error', '❌ 连接异常：' + (error.message || '网络错误，请检查服务器是否运行'));
+      } finally {
+        btn.disabled = false;
+        btn.textContent = originalText;
       }
     }
     
     // 启动交易
     async function startTrading() {
       if (!isConnected) {
-        alert('请先连接 MT5 账户');
+        showAlert('error', '❌ 请先连接 MT5 账户');
         return;
       }
+      
+      const btn = document.getElementById('btnStart');
+      const originalText = btn.textContent;
+      btn.disabled = true;
+      btn.textContent = '启动中...';
       
       const config = {
         symbol: document.getElementById('tradingSymbol').value,
@@ -822,24 +894,39 @@
       };
       
       try {
+        console.log('[前端] 启动交易请求:', config);
+        
         const response = await fetch('/api/real/start', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(config)
         });
         
+        console.log('[前端] 响应状态:', response.status);
+        
         const result = await response.json();
+        console.log('[前端] 响应结果:', result);
         
         if (result.success) {
           isTrading = true;
           document.getElementById('btnStart').disabled = true;
           document.getElementById('btnStop').disabled = false;
-          alert('交易已启动！');
+          showAlert('success', '✅ 交易已启动！');
         } else {
-          alert('启动失败：' + result.error);
+          const errorMsg = result.error || '启动失败，原因未知';
+          console.error('[前端] 启动失败:', errorMsg);
+          showAlert('error', '❌ ' + errorMsg);
+          btn.disabled = false;
         }
       } catch (error) {
-        alert('启动失败：' + error.message);
+        console.error('[前端] 启动异常:', error);
+        showAlert('error', '❌ 启动异常：' + (error.message || '网络错误'));
+        btn.disabled = false;
+      } finally {
+        if (!isTrading) {
+          btn.textContent = originalText;
+          btn.disabled = false;
+        }
       }
     }
     
@@ -877,6 +964,17 @@
         const data = await response.json();
         
         if (data.success) {
+          // 同步连接状态
+          if (data.connected !== undefined) {
+            updateConnectionStatus(data.connected);
+          }
+          
+          // 显示 MT5 信息
+          if (data.mt5Info?.login) {
+            document.getElementById('accountLogin').textContent = data.mt5Info.login;
+            document.getElementById('accountServer').textContent = data.mt5Info.server || '-';
+          }
+          
           updateAccountDisplay(data.account);
           updatePositionsDisplay(data.positions);
           updateDrawdownDisplay(data.drawdown);

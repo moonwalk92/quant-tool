@@ -579,24 +579,29 @@ app.post('/api/real/connect', async (req, res) => {
 // 获取真实交易状态
 app.get('/api/real/status', (req, res) => {
   try {
-    if (!realTradingEngine) {
-      return res.json({ 
-        success: false, 
-        connected: false,
-        account: null,
-        positions: []
-      });
-    }
-    
-    const status = realTradingEngine.getStatus();
-    res.json({
+    const statusData = {
       success: true,
       connected: mt5Connected,
-      account: status.account || null,
-      positions: status.positions || [],
-      drawdown: status.drawdown || 0
-    });
+      trading: realTradingEngine?.isTrading || false,
+      account: null,
+      positions: [],
+      drawdown: 0,
+      mt5Info: {
+        login: process.env.MT5_LOGIN || null,
+        server: process.env.MT5_SERVER || null
+      }
+    };
+    
+    if (realTradingEngine) {
+      const status = realTradingEngine.getStatus();
+      statusData.account = status.account || null;
+      statusData.positions = status.positions || [];
+      statusData.drawdown = status.drawdown || 0;
+    }
+    
+    res.json(statusData);
   } catch (error) {
+    console.error('[真实交易] 获取状态失败:', error);
     res.status(500).json({ success: false, error: error.message });
   }
 });
@@ -605,10 +610,15 @@ app.get('/api/real/status', (req, res) => {
 app.post('/api/real/start', async (req, res) => {
   try {
     if (!mt5Connected) {
-      return res.json({ success: false, error: '请先连接 MT5' });
+      console.log('[真实交易] 启动失败：MT5 未连接');
+      return res.json({ 
+        success: false, 
+        error: 'MT5 未连接，请先点击"连接 MT5"按钮完成连接' 
+      });
     }
     
     const config = req.body;
+    console.log('[真实交易] 启动请求:', config);
     
     // 如果交易引擎未初始化，创建新实例
     if (!realTradingEngine) {
@@ -639,14 +649,28 @@ app.post('/api/real/start', async (req, res) => {
     // 启动交易
     const result = await realTradingEngine.start();
     
+    if (!result) {
+      console.log('[真实交易] 启动返回 false');
+      return res.json({ 
+        success: false, 
+        error: '交易启动失败，可能原因：交易已在运行中或触发回撤限制' 
+      });
+    }
+    
+    console.log('[真实交易] 启动成功');
     res.json({ 
-      success: result, 
+      success: true, 
       message: '真实交易已启动',
       status: realTradingEngine.getStatus()
     });
   } catch (error) {
-    console.error('[真实交易] 启动失败:', error);
-    res.status(500).json({ success: false, error: error.message });
+    console.error('[真实交易] 启动异常:', error);
+    const errorMsg = error.message || '未知错误';
+    res.status(500).json({ 
+      success: false, 
+      error: `启动失败：${errorMsg}`,
+      details: error.stack 
+    });
   }
 });
 
