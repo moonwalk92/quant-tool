@@ -53,6 +53,12 @@
       border: 1px solid #00ff88;
     }
     
+    .btn-real-mode:hover {
+      background: rgba(255, 64, 64, 0.3) !important;
+      transform: translateY(-2px);
+      box-shadow: 0 8px 20px rgba(255, 64, 64, 0.3);
+    }
+
     .status-stopped {
       background: rgba(255, 100, 100, 0.2);
       color: #ff6464;
@@ -728,6 +734,7 @@
   <div class="container">
     <header>
       <h1>🤖 量化交易工具</h1>
+        <a href="/real-trading.html" class="btn-real-mode" style="text-decoration: none; margin-left: 16px; padding: 8px 16px; background: rgba(255, 64, 64, 0.2); border: 1px solid #ff4040; border-radius: 20px; color: #ff4040; font-weight: 600; font-size: 14px; transition: all 0.3s;">🔴 真实交易</a>
       <div id="statusBadge" class="status-badge status-stopped">已停止</div>
     </header>
     
