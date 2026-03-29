@@ -489,3 +489,141 @@ server.listen(PORT, '0.0.0.0', () => {
 });
 
 module.exports = { app, server, io };
+
+// ============== 真实交易 API ==============
+
+// 真实交易引擎实例
+let realTradingEngine = null;
+let mt5Connected = false;
+
+// 连接 MT5
+app.post('/api/real/connect', async (req, res) => {
+  try {
+    const { login, password, server } = req.body;
+    
+    if (!login || !password || !server) {
+      return res.json({ success: false, error: '请填写完整的账户信息' });
+    }
+    
+    // 设置环境变量
+    process.env.MT5_LOGIN = login;
+    process.env.MT5_PASSWORD = password;
+    process.env.MT5_SERVER = server;
+    process.env.USE_REAL_MT4 = 'true';
+    
+    // 创建真实交易引擎
+    if (!realTradingEngine) {
+      realTradingEngine = new TradingEngine({
+        symbol: 'XAUUSD',
+        initialCapital: 10000,
+        riskPerTrade: 0.01,
+        minLots: 0.01,
+        maxLots: 1.0,
+        takeProfitPoints: 20,
+        stopLossPoints: 20,
+        pendingOrderInterval: 5,
+        maxDrawdown: 0.20,
+        pointValue: 0.1,
+        contractSize: 100,
+        useRealPrice: true,
+        useRealMT4: true
+      });
+      
+      // 连接 MT5
+      const connected = await realTradingEngine.connectMT4();
+      mt5Connected = connected;
+    }
+    
+    res.json({ 
+      success: mt5Connected, 
+      message: mt5Connected ? 'MT5 连接成功' : 'MT5 连接失败，请检查账户信息'
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// 获取真实交易状态
+app.get('/api/real/status', (req, res) => {
+  try {
+    if (!realTradingEngine) {
+      return res.json({ 
+        success: false, 
+        connected: false,
+        account: null,
+        positions: []
+      });
+    }
+    
+    const status = realTradingEngine.getStatus();
+    res.json({
+      success: true,
+      connected: mt5Connected,
+      account: status.account || null,
+      positions: status.positions || [],
+      drawdown: status.drawdown || 0
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// 启动真实交易
+app.post('/api/real/start', async (req, res) => {
+  try {
+    if (!mt5Connected) {
+      return res.json({ success: false, error: '请先连接 MT5' });
+    }
+    
+    const config = req.body;
+    
+    // 更新配置
+    if (realTradingEngine) {
+      if (config.symbol) realTradingEngine.symbol = config.symbol;
+      if (config.riskPerTrade) realTradingEngine.riskPerTrade = config.riskPerTrade;
+      if (config.takeProfitPoints) realTradingEngine.takeProfitPoints = config.takeProfitPoints;
+      if (config.stopLossPoints) realTradingEngine.stopLossPoints = config.stopLossPoints;
+    }
+    
+    // 启动交易
+    const result = await realTradingEngine.start();
+    
+    res.json({ 
+      success: result, 
+      message: '真实交易已启动',
+      status: realTradingEngine.getStatus()
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// 停止真实交易
+app.post('/api/real/stop', async (req, res) => {
+  try {
+    if (!realTradingEngine) {
+      return res.json({ success: false, error: '交易引擎未初始化' });
+    }
+    
+    await realTradingEngine.stop();
+    
+    res.json({ 
+      success: true, 
+      message: '真实交易已停止',
+      status: realTradingEngine.getStatus()
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// 获取真实价格
+app.get('/api/real/price', async (req, res) => {
+  try {
+    const symbol = req.query.symbol || 'XAUUSD';
+    const price = await priceAPI.getPriceData(symbol);
+    res.json({ success: true, price });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});

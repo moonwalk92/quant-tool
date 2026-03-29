@@ -1,0 +1,872 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>真实交易 - 量化交易工具</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+      min-height: 100vh;
+      color: #fff;
+    }
+    
+    .container {
+      max-width: 1600px;
+      margin: 0 auto;
+      padding: 20px;
+    }
+    
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 20px 0;
+      border-bottom: 1px solid rgba(255,255,255,0.1);
+      margin-bottom: 30px;
+    }
+    
+    h1 {
+      font-size: 28px;
+      background: linear-gradient(90deg, #00d9ff, #00ff88);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    
+    .status-badge {
+      padding: 8px 16px;
+      border-radius: 20px;
+      font-size: 14px;
+      font-weight: 600;
+    }
+    
+    .status-connected {
+      background: rgba(0, 255, 136, 0.2);
+      color: #00ff88;
+      border: 1px solid #00ff88;
+    }
+    
+    .status-disconnected {
+      background: rgba(255, 100, 100, 0.2);
+      color: #ff6464;
+      border: 1px solid #ff6464;
+    }
+    
+    .status-warning {
+      background: rgba(255, 165, 0, 0.2);
+      color: #ffa500;
+      border: 1px solid #ffa500;
+    }
+    
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+      gap: 20px;
+      margin-bottom: 30px;
+    }
+    
+    .card {
+      background: rgba(255, 255, 255, 0.05);
+      border-radius: 16px;
+      padding: 24px;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+    
+    .card-title {
+      font-size: 14px;
+      color: rgba(255, 255, 255, 0.6);
+      margin-bottom: 12px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+    
+    .card-value {
+      font-size: 32px;
+      font-weight: 700;
+      margin-bottom: 8px;
+    }
+    
+    .card-subtitle {
+      font-size: 14px;
+      color: rgba(255, 255, 255, 0.5);
+    }
+    
+    .price-up { color: #00ff88; }
+    .price-down { color: #ff6464; }
+    
+    .account-info {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 16px;
+      margin-top: 16px;
+    }
+    
+    .info-item {
+      background: rgba(255, 255, 255, 0.03);
+      padding: 12px;
+      border-radius: 8px;
+    }
+    
+    .info-label {
+      font-size: 12px;
+      color: rgba(255, 255, 255, 0.5);
+      margin-bottom: 4px;
+    }
+    
+    .info-value {
+      font-size: 18px;
+      font-weight: 600;
+      color: #00d9ff;
+    }
+    
+    .control-panel {
+      display: flex;
+      gap: 12px;
+      margin-top: 20px;
+    }
+    
+    button {
+      flex: 1;
+      padding: 14px 24px;
+      border: none;
+      border-radius: 12px;
+      font-size: 16px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.3s;
+    }
+    
+    .btn-start {
+      background: linear-gradient(135deg, #00d9ff, #00ff88);
+      color: #1a1a2e;
+    }
+    
+    .btn-start:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 10px 30px rgba(0, 255, 136, 0.3);
+    }
+    
+    .btn-stop {
+      background: rgba(255, 100, 100, 0.2);
+      color: #ff6464;
+      border: 1px solid #ff6464;
+    }
+    
+    .btn-stop:hover {
+      background: rgba(255, 100, 100, 0.3);
+    }
+    
+    .btn-connect {
+      background: rgba(0, 217, 255, 0.2);
+      color: #00d9ff;
+      border: 1px solid #00d9ff;
+    }
+    
+    .btn-connect:hover {
+      background: rgba(0, 217, 255, 0.3);
+    }
+    
+    button:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+      transform: none !important;
+    }
+    
+    .positions-list {
+      margin-top: 16px;
+      max-height: 400px;
+      overflow-y: auto;
+    }
+    
+    .position-item {
+      background: rgba(255, 255, 255, 0.05);
+      border-radius: 8px;
+      padding: 16px;
+      margin-bottom: 12px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+    }
+    
+    .position-direction {
+      font-weight: 700;
+      padding: 6px 12px;
+      border-radius: 6px;
+      font-size: 12px;
+      min-width: 60px;
+      text-align: center;
+    }
+    
+    .direction-buy {
+      background: rgba(0, 255, 136, 0.2);
+      color: #00ff88;
+    }
+    
+    .direction-sell {
+      background: rgba(255, 100, 100, 0.2);
+      color: #ff6464;
+    }
+    
+    .position-info {
+      flex: 1;
+      margin-left: 16px;
+    }
+    
+    .position-symbol {
+      font-size: 16px;
+      font-weight: 600;
+      margin-bottom: 4px;
+    }
+    
+    .position-details {
+      font-size: 13px;
+      color: rgba(255, 255, 255, 0.6);
+    }
+    
+    .position-profit {
+      font-size: 16px;
+      font-weight: 700;
+      min-width: 100px;
+      text-align: right;
+    }
+    
+    .profit-positive { color: #00ff88; }
+    .profit-negative { color: #ff6464; }
+    
+    .config-form {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 16px;
+    }
+    
+    .form-group {
+      display: flex;
+      flex-direction: column;
+    }
+    
+    .form-group label {
+      font-size: 12px;
+      color: rgba(255, 255, 255, 0.6);
+      margin-bottom: 6px;
+    }
+    
+    .form-group input, .form-group select {
+      background: rgba(255, 255, 255, 0.1);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      border-radius: 8px;
+      padding: 10px 12px;
+      color: #fff;
+      font-size: 14px;
+    }
+    
+    .form-group input:focus, .form-group select:focus {
+      outline: none;
+      border-color: #00d9ff;
+    }
+    
+    .empty-state {
+      text-align: center;
+      padding: 40px;
+      color: rgba(255, 255, 255, 0.4);
+    }
+    
+    .risk-indicator {
+      margin-top: 16px;
+    }
+    
+    .risk-label {
+      font-size: 12px;
+      color: rgba(255, 255, 255, 0.6);
+      margin-bottom: 8px;
+      display: flex;
+      justify-content: space-between;
+    }
+    
+    .progress-bar {
+      width: 100%;
+      height: 8px;
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 4px;
+      overflow: hidden;
+    }
+    
+    .progress-fill {
+      height: 100%;
+      background: linear-gradient(90deg, #00ff88, #ffa500, #ff4040);
+      transition: width 0.3s;
+    }
+    
+    .alert {
+      padding: 16px;
+      border-radius: 12px;
+      margin-bottom: 20px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    
+    .alert-warning {
+      background: rgba(255, 165, 0, 0.15);
+      border: 1px solid #ffa500;
+      color: #ffa500;
+    }
+    
+    .alert-danger {
+      background: rgba(255, 64, 64, 0.15);
+      border: 1px solid #ff4040;
+      color: #ff4040;
+    }
+    
+    .alert-success {
+      background: rgba(0, 255, 136, 0.15);
+      border: 1px solid #00ff88;
+      color: #00ff88;
+    }
+    
+    .modal {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.8);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 10000;
+      backdrop-filter: blur(4px);
+    }
+    
+    .modal-content {
+      background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+      border-radius: 16px;
+      padding: 32px;
+      width: 90%;
+      max-width: 600px;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+    }
+    
+    .modal-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 24px;
+      padding-bottom: 16px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    }
+    
+    .modal-header h3 {
+      margin: 0;
+      color: #00d9ff;
+      font-size: 20px;
+    }
+    
+    .modal-close {
+      background: none;
+      border: none;
+      color: rgba(255, 255, 255, 0.5);
+      font-size: 28px;
+      cursor: pointer;
+      padding: 0;
+      width: 32px;
+      height: 32px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    
+    .modal-close:hover {
+      color: #fff;
+    }
+    
+    .modal-body {
+      margin-bottom: 24px;
+    }
+    
+    .modal-footer {
+      display: flex;
+      gap: 12px;
+      justify-content: flex-end;
+      padding-top: 16px;
+      border-top: 1px solid rgba(255, 255, 255, 0.1);
+    }
+    
+    .risk-warning {
+      background: rgba(255, 64, 64, 0.1);
+      border: 1px solid #ff4040;
+      border-radius: 12px;
+      padding: 20px;
+      margin-bottom: 20px;
+    }
+    
+    .risk-warning h4 {
+      color: #ff4040;
+      margin-bottom: 12px;
+      font-size: 16px;
+    }
+    
+    .risk-warning ul {
+      margin-left: 20px;
+      color: rgba(255, 255, 255, 0.8);
+    }
+    
+    .risk-warning li {
+      margin-bottom: 8px;
+    }
+    
+    .nav-tabs {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 20px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+      padding-bottom: 12px;
+    }
+    
+    .nav-tab {
+      padding: 10px 20px;
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 8px;
+      color: rgba(255, 255, 255, 0.6);
+      cursor: pointer;
+      transition: all 0.3s;
+      text-decoration: none;
+      font-size: 14px;
+    }
+    
+    .nav-tab:hover {
+      background: rgba(255, 255, 255, 0.1);
+      color: #fff;
+    }
+    
+    .nav-tab.active {
+      background: rgba(0, 217, 255, 0.2);
+      color: #00d9ff;
+      border-color: #00d9ff;
+    }
+    
+    .back-link {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      color: rgba(255, 255, 255, 0.6);
+      text-decoration: none;
+      margin-bottom: 20px;
+      font-size: 14px;
+    }
+    
+    .back-link:hover {
+      color: #00d9ff;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <a href="/" class="back-link">← 返回模拟交易</a>
+    
+    <header>
+      <h1>🔴 真实交易模式</h1>
+      <div id="connectionStatus" class="status-badge status-disconnected">
+        未连接 MT5
+      </div>
+    </header>
+    
+    <!-- 风险警告 -->
+    <div class="alert alert-warning">
+      <strong>⚠️ 风险警告：</strong>
+      <span>真实交易存在本金损失风险，请确保已充分了解风险并只用能承受损失的资金交易。</span>
+    </div>
+    
+    <!-- 账户信息 -->
+    <div class="grid">
+      <div class="card">
+        <div class="card-title">账户余额</div>
+        <div class="card-value" id="accountBalance">$0.00</div>
+        <div class="card-subtitle">可用资金：<span id="accountFreeMargin">$0.00</span></div>
+        <div class="account-info">
+          <div class="info-item">
+            <div class="info-label">账户号</div>
+            <div class="info-value" id="accountLogin">-</div>
+          </div>
+          <div class="info-item">
+            <div class="info-label">服务器</div>
+            <div class="info-value" id="accountServer">-</div>
+          </div>
+          <div class="info-item">
+            <div class="info-label">净值</div>
+            <div class="info-value" id="accountEquity">$0.00</div>
+          </div>
+          <div class="info-item">
+            <div class="info-label">货币</div>
+            <div class="info-value" id="accountCurrency">USD</div>
+          </div>
+        </div>
+      </div>
+      
+      <div class="card">
+        <div class="card-title">当前价格</div>
+        <div class="card-value" id="currentPrice">$0.00</div>
+        <div class="card-subtitle" id="priceSource">数据源：-</div>
+        <div class="account-info">
+          <div class="info-item">
+            <div class="info-label">Bid</div>
+            <div class="info-value" id="priceBid">0.00</div>
+          </div>
+          <div class="info-item">
+            <div class="info-label">Ask</div>
+            <div class="info-value" id="priceAsk">0.00</div>
+          </div>
+          <div class="info-item">
+            <div class="info-label">Spread</div>
+            <div class="info-value" id="priceSpread">0.00</div>
+          </div>
+          <div class="info-item">
+            <div class="info-label">趋势</div>
+            <div class="info-value" id="priceTrend">-</div>
+          </div>
+        </div>
+      </div>
+      
+      <div class="card">
+        <div class="card-title">风险控制</div>
+        <div class="card-value" id="drawdownValue">0.00%</div>
+        <div class="card-subtitle">最大回撤：<span id="maxDrawdown">20.00%</span></div>
+        <div class="risk-indicator">
+          <div class="risk-label">
+            <span>当前回撤</span>
+            <span id="drawdownPercent">0.00%</span>
+          </div>
+          <div class="progress-bar">
+            <div class="progress-fill" id="drawdownProgress" style="width: 0%"></div>
+          </div>
+        </div>
+        <div class="control-panel">
+          <button class="btn-connect" onclick="connectMT5()">🔌 连接 MT5</button>
+        </div>
+      </div>
+    </div>
+    
+    <!-- 交易控制 -->
+    <div class="card" style="margin-bottom: 30px;">
+      <div class="card-title">交易控制</div>
+      <div class="config-form" style="margin-bottom: 20px;">
+        <div class="form-group">
+          <label>交易品种</label>
+          <select id="tradingSymbol">
+            <option value="XAUUSD">XAUUSD (黄金)</option>
+            <option value="XAGUSD">XAGUSD (白银)</option>
+            <option value="EURUSD">EURUSD</option>
+            <option value="GBPUSD">GBPUSD</option>
+            <option value="BTCUSD">BTCUSD (比特币)</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>单笔风险 (%)</label>
+          <input type="number" id="riskPerTrade" value="1" min="0.1" max="5" step="0.1">
+        </div>
+        <div class="form-group">
+          <label>止盈 (点)</label>
+          <input type="number" id="takeProfit" value="20" min="5" max="100">
+        </div>
+        <div class="form-group">
+          <label>止损 (点)</label>
+          <input type="number" id="stopLoss" value="20" min="5" max="100">
+        </div>
+      </div>
+      <div class="control-panel">
+        <button class="btn-start" id="btnStart" onclick="startTrading()" disabled>▶ 启动交易</button>
+        <button class="btn-stop" id="btnStop" onclick="stopTrading()" disabled>⏹ 停止交易</button>
+      </div>
+    </div>
+    
+    <!-- 持仓列表 -->
+    <div class="card">
+      <div class="card-title">当前持仓</div>
+      <div class="positions-list" id="positionsList">
+        <div class="empty-state">暂无持仓</div>
+      </div>
+    </div>
+  </div>
+  
+  <!-- 连接确认弹窗 -->
+  <div id="connectModal" class="modal" style="display: none;">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3>🔌 连接 MT5 账户</h3>
+        <button class="modal-close" onclick="closeModal('connectModal')">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="risk-warning">
+          <h4>⚠️ 真实交易风险警告</h4>
+          <ul>
+            <li>真实交易存在本金损失风险</li>
+            <li>请确保使用你能承受损失的资金</li>
+            <li>建议先在模拟账户充分测试</li>
+            <li>系统已设置 20% 最大回撤保护</li>
+          </ul>
+        </div>
+        <div class="config-form">
+          <div class="form-group">
+            <label>MT5 账户号</label>
+            <input type="text" id="mt5Login" placeholder="你的账户号">
+          </div>
+          <div class="form-group">
+            <label>MT5 密码</label>
+            <input type="password" id="mt5Password" placeholder="交易密码">
+          </div>
+          <div class="form-group">
+            <label>服务器</label>
+            <input type="text" id="mt5Server" placeholder="如：ICMarketsSC-Demo">
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-stop" onclick="closeModal('connectModal')">取消</button>
+        <button class="btn-start" onclick="confirmConnect()">确认连接</button>
+      </div>
+    </div>
+  </div>
+  
+  <script>
+    let ws = null;
+    let isConnected = false;
+    let isTrading = false;
+    let accountInfo = null;
+    let positions = [];
+    
+    // 连接 WebSocket
+    function connectWebSocket() {
+      const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+      ws = new WebSocket(`${protocol}//${window.location.host}`);
+      
+      ws.onopen = () => {
+        console.log('WebSocket 已连接');
+      };
+      
+      ws.onmessage = (event) => {
+        const data = JSON.parse(event.data);
+        handleWebSocketMessage(data);
+      };
+      
+      ws.onclose = () => {
+        console.log('WebSocket 已断开');
+        setTimeout(connectWebSocket, 3000);
+      };
+    }
+    
+    // 处理 WebSocket 消息
+    function handleWebSocketMessage(data) {
+      if (data.type === 'priceUpdate') {
+        updatePriceDisplay(data.price);
+      } else if (data.type === 'accountUpdate') {
+        updateAccountDisplay(data.account);
+      } else if (data.type === 'positionUpdate') {
+        updatePositionsDisplay(data.positions);
+      } else if (data.type === 'drawdownUpdate') {
+        updateDrawdownDisplay(data.drawdown);
+      }
+    }
+    
+    // 更新价格显示
+    function updatePriceDisplay(price) {
+      if (!price) return;
+      
+      const priceEl = document.getElementById('currentPrice');
+      const prevPrice = parseFloat(priceEl.textContent.replace('$', ''));
+      
+      priceEl.textContent = `$${price.bid.toFixed(2)}`;
+      priceEl.className = 'card-value ' + (price.bid >= prevPrice ? 'price-up' : 'price-down');
+      
+      document.getElementById('priceBid').textContent = price.bid.toFixed(2);
+      document.getElementById('priceAsk').textContent = price.ask.toFixed(2);
+      document.getElementById('priceSpread').textContent = (price.ask - price.bid).toFixed(2);
+      document.getElementById('priceSource').textContent = `数据源：${price.source || 'MT5'}`;
+    }
+    
+    // 更新账户显示
+    function updateAccountDisplay(account) {
+      if (!account) return;
+      
+      accountInfo = account;
+      document.getElementById('accountBalance').textContent = `$${account.balance.toFixed(2)}`;
+      document.getElementById('accountFreeMargin').textContent = `$${account.freeMargin.toFixed(2)}`;
+      document.getElementById('accountEquity').textContent = `$${account.equity.toFixed(2)}`;
+      document.getElementById('accountLogin').textContent = account.login || '-';
+      document.getElementById('accountServer').textContent = account.server || '-';
+      document.getElementById('accountCurrency').textContent = account.currency || 'USD';
+    }
+    
+    // 更新持仓显示
+    function updatePositionsDisplay(positionsList) {
+      positions = positionsList || [];
+      const container = document.getElementById('positionsList');
+      
+      if (positions.length === 0) {
+        container.innerHTML = '<div class="empty-state">暂无持仓</div>';
+        return;
+      }
+      
+      container.innerHTML = positions.map(pos => `
+        <div class="position-item">
+          <div class="position-direction ${pos.direction === 'BUY' ? 'direction-buy' : 'direction-sell'}">
+            ${pos.direction === 'BUY' ? '买入' : '卖出'}
+          </div>
+          <div class="position-info">
+            <div class="position-symbol">${pos.symbol} - ${pos.lots}手</div>
+            <div class="position-details">
+              开仓价：${pos.openPrice.toFixed(2)} | 
+              止损：${pos.stopLoss.toFixed(2)} | 
+              止盈：${pos.takeProfit.toFixed(2)}
+            </div>
+          </div>
+          <div class="position-profit ${pos.profit >= 0 ? 'profit-positive' : 'profit-negative'}">
+            ${pos.profit >= 0 ? '+' : ''}$${pos.profit.toFixed(2)}
+          </div>
+        </div>
+      `).join('');
+    }
+    
+    // 更新回撤显示
+    function updateDrawdownDisplay(drawdown) {
+      const percent = (drawdown * 100).toFixed(2);
+      document.getElementById('drawdownValue').textContent = `${percent}%`;
+      document.getElementById('drawdownPercent').textContent = `${percent}%`;
+      document.getElementById('drawdownProgress').style.width = `${Math.min(percent, 100)}%`;
+    }
+    
+    // 连接 MT5
+    async function connectMT5() {
+      document.getElementById('connectModal').style.display = 'flex';
+    }
+    
+    // 确认连接
+    async function confirmConnect() {
+      const login = document.getElementById('mt5Login').value;
+      const password = document.getElementById('mt5Password').value;
+      const server = document.getElementById('mt5Server').value;
+      
+      if (!login || !password || !server) {
+        alert('请填写完整的 MT5 账户信息');
+        return;
+      }
+      
+      try {
+        const response = await fetch('/api/real/connect', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ login, password, server })
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+          isConnected = true;
+          document.getElementById('connectionStatus').className = 'status-badge status-connected';
+          document.getElementById('connectionStatus').textContent = '● 已连接 MT5';
+          document.getElementById('btnStart').disabled = false;
+          closeModal('connectModal');
+          alert('MT5 连接成功！');
+        } else {
+          alert('连接失败：' + result.error);
+        }
+      } catch (error) {
+        alert('连接失败：' + error.message);
+      }
+    }
+    
+    // 启动交易
+    async function startTrading() {
+      if (!isConnected) {
+        alert('请先连接 MT5 账户');
+        return;
+      }
+      
+      const config = {
+        symbol: document.getElementById('tradingSymbol').value,
+        riskPerTrade: parseFloat(document.getElementById('riskPerTrade').value) / 100,
+        takeProfitPoints: parseInt(document.getElementById('takeProfit').value),
+        stopLossPoints: parseInt(document.getElementById('stopLoss').value)
+      };
+      
+      try {
+        const response = await fetch('/api/real/start', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(config)
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+          isTrading = true;
+          document.getElementById('btnStart').disabled = true;
+          document.getElementById('btnStop').disabled = false;
+          alert('交易已启动！');
+        } else {
+          alert('启动失败：' + result.error);
+        }
+      } catch (error) {
+        alert('启动失败：' + error.message);
+      }
+    }
+    
+    // 停止交易
+    async function stopTrading() {
+      try {
+        const response = await fetch('/api/real/stop', {
+          method: 'POST'
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+          isTrading = false;
+          document.getElementById('btnStart').disabled = false;
+          document.getElementById('btnStop').disabled = true;
+          alert('交易已停止！');
+        } else {
+          alert('停止失败：' + result.error);
+        }
+      } catch (error) {
+        alert('停止失败：' + error.message);
+      }
+    }
+    
+    // 关闭弹窗
+    function closeModal(modalId) {
+      document.getElementById(modalId).style.display = 'none';
+    }
+    
+    // 定时获取状态
+    async function fetchStatus() {
+      try {
+        const response = await fetch('/api/real/status');
+        const data = await response.json();
+        
+        if (data.success) {
+          updateAccountDisplay(data.account);
+          updatePositionsDisplay(data.positions);
+          updateDrawdownDisplay(data.drawdown);
+        }
+      } catch (error) {
+        console.error('获取状态失败:', error);
+      }
+    }
+    
+    // 初始化
+    window.onload = () => {
+      connectWebSocket();
+      setInterval(fetchStatus, 3000);
+    };
+  </script>
+</body>
+</html>
